@@ -37,7 +37,7 @@ nohup python run_mib_pretraining.py \
     --imagenet_default_mean_and_std \
     --opt_betas 0.9 0.999 \
     --opt_eps 1e-8  \
-    --weight_decay 0.01 \
+    --weight_decay 0 \
     --epochs 1 \
     --save_ckpt_freq 20 \
     --use_text_cl \
