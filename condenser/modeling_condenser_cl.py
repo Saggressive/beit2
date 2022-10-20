@@ -126,11 +126,11 @@ class CondenserForPretraining(nn.Module):
                     "attention_mask": model_input["attention_mask"],"token_type_ids": model_input["token_type_ids"]}
             cl_out: MaskedLMOutput = self.lm(
                 **cl_input,
-                output_hidden_states=True,
+                output_hidden_states=False,
                 return_dict=True,
                 cl=True
             )
-            cls_hiddens=cl_out.hidden_states[-1][:,0]
+            cls_hiddens=cl_out.last_hiddens[:,0]
             z = self.mlp(cls_hiddens)
             z1,z2=z[0:batch],z[batch:]
             if dist.is_initialized() and self.lm.training:
