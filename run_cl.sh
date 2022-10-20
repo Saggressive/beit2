@@ -3,7 +3,7 @@ export NCCL_IB_DISABLE=0
 export NCCL_IB_GID_INDEX=3
 export NCCL_SOCKET_IFNAME=eth
 export NCCL_IB_HCA=mlx5
-export CUDA_VISIBLE_DEVICEs=0
+export CUDA_VISIBLE_DEVICEs=1
 name=only_text_cl
 LR=3e-5
 all_dir=./save/condenser/${name}_${LR}
@@ -37,7 +37,7 @@ nohup python run_mib_pretraining.py \
     --imagenet_default_mean_and_std \
     --opt_betas 0.9 0.999 \
     --opt_eps 1e-8  \
-    --weight_decay 0 \
+    --weight_decay 0.01 \
     --epochs 1 \
     --save_ckpt_freq 20 \
     --use_text_cl \
