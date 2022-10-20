@@ -41,7 +41,7 @@ from condenser.modeling_condenser_cl import CondenserForPretraining, RobertaCond
 from condenser.arguments import DataTrainingArguments, ModelArguments
 from condenser.arguments import CondenserPreTrainingArguments as TrainingArguments
 # from flickr_train_dataset import flickr_train
-from sts_dataset_cl import paired_dataset,wiki1m_dataset
+from sts_dataset_cl_v1 import paired_dataset,wiki1m_dataset
 # from sts_dataset import paired_dataset,wiki1m_dataset
 from transformers.optimization import get_scheduler
 from transformers.trainer_utils import SchedulerType
@@ -60,7 +60,7 @@ CONDENSER_TYPE_MAP = {
     'bert': CondenserForPretraining,
     'roberta': RobertaCondenserForPretraining,
 }
-from condenser import data,cl_data
+from condenser import data,cl_data,cl_data_v1
 def get_model(args, model_args, data_args, training_args):
     print(f"Creating model: {args.model}")
     if 'cls_pt' in args.model:
@@ -219,12 +219,7 @@ def main(args , model_args, data_args, training_args):
             tokenizer=tokenizer,
             mlm_probability=data_args.mlm_probability,
         )
-        data_collator_text = cl_data.CondenserCollator_text(
-            args,
-            max_seq_length=data_args.max_seq_length,
-            tokenizer=tokenizer,
-            mlm_probability=data_args.mlm_probability,
-        )
+        data_collator_text = cl_data_v1.OurDataCollatorWithPadding(tokenizer=tokenizer)
     else:
         data_collator = data.CondenserCollator(
             tokenizer=tokenizer,

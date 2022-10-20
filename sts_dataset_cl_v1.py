@@ -49,14 +49,14 @@ class wiki1m_dataset(Dataset):
         text = self.txt_data[index]
         if text is None:
             text= " "
-        sent_features= tokenizer(
+        sent_features= self.tokenizer(
             text,
-            max_length=args.max_seq_length,
+            max_length=32,
             truncation=True,
-            padding="max_length" if args.pad_to_max_length else False,
+            padding=False,
         )
         
-        return ids
+        return sent_features
 
 if __name__=="__main__":
     tokenizer = BertTokenizer.from_pretrained("pretrained_model/condenser")

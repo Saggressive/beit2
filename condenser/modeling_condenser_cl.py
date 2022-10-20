@@ -82,7 +82,7 @@ class CondenserForPretraining(nn.Module):
         if beit_args.use_text_cl:
             self.mlp=MLPLayer(768)
             self.sim=Similarity(beit_args.temp)
-            
+
         if beit_args.only_text_cl:
             return
 
@@ -122,7 +122,8 @@ class CondenserForPretraining(nn.Module):
             double_batch = model_input["cl_input_ids"].size()[0]
             assert double_batch%2 ==0
             batch=double_batch//2
-            cl_input={"input_ids":model_input["cl_input_ids"],"attention_mask": model_input["attention_mask"]}
+            cl_input={"input_ids":model_input["cl_input_ids"], \
+                    "attention_mask": model_input["attention_mask"],"token_type_ids": model_input["token_type_ids"]}
             cl_out: MaskedLMOutput = self.lm(
                 **cl_input,
                 output_hidden_states=True,

@@ -21,17 +21,18 @@ from torch.utils.data import Dataset
 from transformers import DataCollatorForWholeWordMask
 from copy import deepcopy
 from beit_datasets import DataAugmentationForBEiT
-
+from transformers.tokenization_utils_base import BatchEncoding, PaddingStrategy, PreTrainedTokenizerBase
+from typing import Optional, Union, List, Dict, Tuple
 @dataclass
 class OurDataCollatorWithPadding:
-
-    tokenizer: PreTrainedTokenizerBase
-    padding: Union[bool, str, PaddingStrategy] = True
-    max_length: Optional[int] = None
-    pad_to_multiple_of: Optional[int] = None
-    mlm: bool = True
-    mlm_probability: float = 0.15
-
+    
+    def __init__(self,tokenizer,padding=True, max_length=None,pad_to_multiple_of=None,mlm=True,mlm_probability=0.15):
+        self.tokenizer=tokenizer
+        self.padding=padding
+        self.max_length=max_length
+        self.pad_to_multiple_of=pad_to_multiple_of
+        self.mlm=mlm
+        self.mlm_probability=mlm_probability
     def __call__(self, features: List[Dict[str, Union[List[int], List[List[int]], torch.Tensor]]]) -> Dict[str, torch.Tensor]:
         special_keys = ['input_ids', 'attention_mask', 'token_type_ids', 'mlm_input_ids', 'mlm_labels']
         bs = len(features)
@@ -39,10 +40,7 @@ class OurDataCollatorWithPadding:
             num_sent = len(features[0]['input_ids'])
         else:
             return
-        flat_features = []
-        for feature in features:
-            for i in range(num_sent):
-                flat_features.append({k: feature[k][i] if k in special_keys else feature[k] for k in feature})
+        flat_features = features*2
 
         batch = self.tokenizer.pad(
             flat_features,
@@ -51,8 +49,8 @@ class OurDataCollatorWithPadding:
             pad_to_multiple_of=self.pad_to_multiple_of,
             return_tensors="pt",
         )
-        if model_args.do_mlm:
-            batch["mlm_input_ids"], batch["mlm_labels"] = self.mask_tokens(batch["input_ids"])
+        
+        batch["mlm_input_ids"], batch["mlm_labels"] = self.mask_tokens(batch["input_ids"])
 
         batch = {k: batch[k].view(bs, num_sent, -1) if k in special_keys else batch[k].view(bs, num_sent, -1)[:, 0] for k in batch}
 
@@ -99,4 +97,3 @@ class OurDataCollatorWithPadding:
         # The rest of the time (10% of the time) we keep the masked input tokens unchanged
         return inputs, labels
 
-data_collator = default_data_collator if data_args.pad_to_max_length else OurDataCollatorWithPadding(tokenizer)
