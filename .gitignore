@@ -1,0 +1,17 @@
+imagenet-1k/
+save/
+pretrained_model/
+ir_data/
+SentEval/
+vqkd_teacher/
+log_dir/
+img1k_demo/
+imagenet-1k
+img1k_demo
+debug/
+vqkd_teacher/
+semantic_segmentation/
+all_dir/
+
+
+
