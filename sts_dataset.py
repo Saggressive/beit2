@@ -60,6 +60,7 @@ class wiki1m_dataset(Dataset):
         if(len(ids)==0):
             print(index)
             print(text)
+            print(type(text))
         return ids
 
 if __name__=="__main__":

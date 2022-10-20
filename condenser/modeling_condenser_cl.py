@@ -128,9 +128,10 @@ class CondenserForPretraining(nn.Module):
                 output_hidden_states=True,
                 return_dict=True,
             )
-            cls_hiddens=cl_out.hidden_states[-1][:,0]
-            z = self.mlp(cls_hiddens)
-            z1,z2=z[0:batch],z[batch:]
+            z=cl_out.hidden_states[-1][:,0]
+            z=z.view(batch,2,-1)
+            z=self.mlp(z)
+            z1,z2=z[:,0],z[:,1]
             if dist.is_initialized() and self.lm.training:
                 # Dummy vectors for allgather
                 z1_list = [torch.zeros_like(z1) for _ in range(dist.get_world_size())]
@@ -241,7 +242,7 @@ class CondenserForPretraining(nn.Module):
             cls, model_args: ModelArguments, data_args: DataTrainingArguments, train_args: TrainingArguments,
             beit_args,*args, **kwargs
     ):
-        hf_model = BertModel.from_pretrained(*args, **kwargs)
+        hf_model = BertForMaskedLM.from_pretrained(*args, **kwargs)
         model = cls(hf_model, model_args, data_args, train_args,beit_args)
         path = args[0]
         if os.path.exists(os.path.join(path, 'model.pt')) and beit_args.init_condenser:
@@ -258,7 +259,7 @@ class CondenserForPretraining(nn.Module):
             data_args: DataTrainingArguments,
             train_args: TrainingArguments,
     ):
-        hf_model = BertModel.from_config(config)
+        hf_model = BertForMaskedLM.from_config(config)
         model = cls(hf_model, model_args, data_args, train_args)
 
         return model

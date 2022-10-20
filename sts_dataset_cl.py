@@ -49,6 +49,8 @@ class wiki1m_dataset(Dataset):
         text = self.txt_data[index]
         # text = text.strip()
         # print(text)
+        if text is None:
+            text=" "
         ids= self.tokenizer(
             str(text),
             add_special_tokens=False,
@@ -56,6 +58,7 @@ class wiki1m_dataset(Dataset):
             return_attention_mask=False,
             return_token_type_ids=False
         )["input_ids"]
+
         
         return ids
 

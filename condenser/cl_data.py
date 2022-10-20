@@ -189,25 +189,22 @@ class CondenserCollator_text(CondenserCollator):
         self.transform= DataAugmentationForBEiT(beit_args)
 
     def __call__(self, examples):
+            
         if self.beit_args.use_text_cl:
             new_examples = []
-            for caption in examples:
-                new_examples.append(deepcopy(caption))
-            examples.extend(new_examples)
-        
+            for i in range(len(examples)):
+                caption = examples[i]
+                while caption==[] or len(caption)==0 or caption is None:
+                    other = random.randint(0,len(examples))
+                    caption = deepcopy(examples[other])
+                new_examples.extend([caption,deepcopy(caption)])
+        examples=new_examples
         encoded_examples = []
         masks = []
         mlm_masks = []
-        batch = len(examples)
+
         for index,caption in enumerate(examples):
             
-            if len(caption)==0 or caption==None or caption==[]:
-                while len(caption)==0 or caption==None or caption==[]:
-                    other = random.randint(0, batch-1)
-                    caption = examples[other]
-                print("text is errror,no text")
-
-
             e_trunc = self._truncate(caption)
             tokens = [self.tokenizer._convert_id_to_token(tid) for tid in e_trunc]
             mlm_mask = self._whole_word_mask(tokens)

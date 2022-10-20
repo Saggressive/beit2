@@ -10,7 +10,7 @@
     "learning_rate": 1e-4 ,
     "num_train_epochs": 8 ,
     "overwrite_output_dir" : true,
-    "dataloader_num_workers": 32 ,
+    "dataloader_num_workers": 36 ,
     "n_head_layers": 2 ,
     "skip_from": 6 ,
     "max_seq_length" :32 ,
