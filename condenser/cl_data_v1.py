@@ -40,7 +40,8 @@ class OurDataCollatorWithPadding:
             num_sent = len(features[0]['input_ids'])
         else:
             return
-        flat_features = features*2
+        flat_features = deepcopy(features)
+        flat_features.extend(features)
 
         batch = self.tokenizer.pad(
             flat_features,
@@ -51,8 +52,6 @@ class OurDataCollatorWithPadding:
         )
         
         batch["mlm_input_ids"], batch["mlm_labels"] = self.mask_tokens(batch["input_ids"])
-
-        batch = {k: batch[k].view(bs, num_sent, -1) if k in special_keys else batch[k].view(bs, num_sent, -1)[:, 0] for k in batch}
 
         if "label" in batch:
             batch["labels"] = batch["label"]

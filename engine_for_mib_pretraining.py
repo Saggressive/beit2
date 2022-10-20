@@ -165,9 +165,9 @@ def train_for_text(condenser_model: torch.nn.Module,condenser_model_without_ddp:
                     tokenizer: PreTrainedTokenizer ,optimizer: torch.optim.Optimizer,batch,
                     complete_step:int,device: torch.device, best_stsb: float,loss_scaler, max_norm: float = 0,log_writer=None,args=None,step=-1):
     print_freq = 25
-    txt_input_ids, txt_mlm_input_ids,txt_labels, attention_mask,type_ids = batch["input_ids"],batch["mlm_input_ids"], batch["mim_labels"], batch["attention_mask"],batch["token_type_ids"]
-    txt_input_ids, txt_mlm_input_ids,txt_labels, attention_mask,type_ids = txt_input_ids.to(device, non_blocking=True), txt_cl_input_ids.to(device, non_blocking=True), \
-                                                txt_labels.to(device, non_blocking=True), attention_mask.to(device,non_blocking=True),batch["token_type_ids"]
+    txt_input_ids, txt_mlm_input_ids,txt_labels, attention_mask,type_ids = batch["input_ids"],batch["mlm_input_ids"], batch["mlm_labels"], batch["attention_mask"],batch["token_type_ids"]
+    txt_input_ids, txt_mlm_input_ids,txt_labels, attention_mask,type_ids = txt_input_ids.to(device, non_blocking=True), txt_mlm_input_ids.to(device, non_blocking=True), \
+                                                txt_labels.to(device, non_blocking=True), attention_mask.to(device,non_blocking=True),type_ids.to(device, non_blocking=True)
 
     with torch.cuda.amp.autocast():  # enabled=False
         model_input = {"cl_input_ids": txt_input_ids,"input_ids": txt_mlm_input_ids, "attention_mask": attention_mask,"token_type_ids":type_ids}
