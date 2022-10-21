@@ -25,42 +25,15 @@ class paired_dataset(Dataset):
         img_path , caption =_dict["image"] , _dict["caption"]
         img_path = self.root + os.sep + img_path
         img = Image.open(img_path)
-        caption = self.tokenizer(
-            caption,
-            add_special_tokens=False,
-            truncation=False,
-            return_attention_mask=False,
-            return_token_type_ids=False
-        )["input_ids"]
-        return img, caption
 
-class wiki1m_dataset(Dataset):
-    def __init__(self, txt_path, tokenizer ,args=None):
-
-        with open(txt_path, "r") as f:
-            self.txt_data = f.readlines()
-        self.tokenizer = tokenizer 
-
-
-    def __len__(self):
-        return len(self.txt_data)
-
-    def __getitem__(self, index):
-        text = self.txt_data[index]
-        # text = text.strip()
-        # print(text)
-        if text is None:
-            text=" "
         ids= self.tokenizer(
-            str(text),
-            add_special_tokens=False,
-            truncation=False,
-            return_attention_mask=False,
-            return_token_type_ids=False
-        )["input_ids"]
+            caption,
+            max_length=self.args.max_seq_length,
+            truncation=True,
+            padding=False,
+        )
+        return img, ids
 
-        
-        return ids
 
 if __name__=="__main__":
     tokenizer = BertTokenizer.from_pretrained("pretrained_model/condenser")
