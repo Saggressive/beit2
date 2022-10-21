@@ -142,7 +142,7 @@ def create_optimizer(args, model,condenser_model, get_num_layer=None, get_layer_
             "lr_scale": 1.0
         },
     ]
-
+    # parameters = list(parameters)
     # parameters.extend(condenser_parameters)
     parameters = condenser_parameters
     print('Optimizer config:', opt_args)

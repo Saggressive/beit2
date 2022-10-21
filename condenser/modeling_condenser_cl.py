@@ -94,6 +94,7 @@ class CondenserForPretraining(nn.Module):
 
         if beit_args.use_beit_mlm:
             self.img2text=nn.Linear(768, 768)
+            self.img2text.apply(self.lm._init_weights)
             self.beit_mlm_head = nn.ModuleList(
                 [BertLayer(bert.config) for _ in range(model_args.n_head_layers)]
             )
@@ -101,6 +102,7 @@ class CondenserForPretraining(nn.Module):
 
         if beit_args.use_beit_mim:
             self.text2img=nn.Linear(768, 768)
+            self.text2img.apply(self.lm._init_weights)
             norm_layer = partial(nn.LayerNorm, eps=1e-6)
             self.norm=norm_layer(768)
             dpr = [x.item() for x in torch.linspace(0, 0.1, 12)]  # stochastic depth decay rule
@@ -118,11 +120,11 @@ class CondenserForPretraining(nn.Module):
 
 
     def forward(self, model_input, labels, beit_cls=None, beit_hidden=None, mim_labels=None, mim_mask=None,mode="text"):
-        cl_loss = torch.tensor(0,dtype=torch.float,device=model_input["cl_input_ids"].device)
+        cl_loss = torch.tensor(0,dtype=torch.float,device=model_input["input_ids"].device)
         if self.beit_args.use_text_cl:
-            batch_size=model_input["cl_input_ids"].size()[0]
+            batch_size=model_input["input_ids"].size()[0]//2
 
-            cl_input={"input_ids":model_input["cl_input_ids"].view(2*batch_size,-1),\
+            cl_input={"input_ids":model_input["input_ids"].view(2*batch_size,-1),\
                 "attention_mask": model_input["attention_mask"].view(2*batch_size,-1),\
                 "token_type_ids":model_input["token_type_ids"].view(2*batch_size,-1)}
             cl_out= self.lm(
@@ -161,7 +163,7 @@ class CondenserForPretraining(nn.Module):
             model_input['attention_mask'].shape,
             model_input['attention_mask'].device
         )
-        mlm_input={"input_ids":model_input["input_ids"],"attention_mask": model_input["attention_mask"]}
+        mlm_input={"input_ids":model_input["mlm_input_ids"],"attention_mask": model_input["attention_mask"]}
         lm_out: MaskedLMOutput = self.lm(
             **mlm_input,
             labels=labels,

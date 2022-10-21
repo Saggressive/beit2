@@ -3,13 +3,12 @@ export NCCL_IB_DISABLE=0
 export NCCL_IB_GID_INDEX=3
 export NCCL_SOCKET_IFNAME=eth
 export NCCL_IB_HCA=mlx5
-node_rank=$1
+device=$1
+export CUDA_VISIBLE_DEVICES=${device}
 LR=$2
-a0=$3
-a1=$4
-a2=$5
-a3=$6
-name=wiki1m_flickr
+alpha=$3
+warmup_ratio=$4
+name=wiki1m_${LR}_${alpha}_${warmup_ratio}
 # all_dir=./save/condenser/${name}_${LR}_${a0}_${a1}_${a2}_${a3}_epoch50
 all_dir=./save/new_base_condenser/
 log_dir=./save/new_base_condenser/tensorboard_log/
@@ -36,24 +35,25 @@ nohup python -m torch.distributed.launch --nnodes=4 --master_addr=10.116.146.14 
     --resume /nlp_group/wuxing/suzhenpeng/beit2/pretrained_model/beitv2_base_patch16_224_pt1k.pth\
     --batch_size 8 \
     --lr ${LR} \
-    --warmup_epochs 1 \
     --clip_grad 3.0 \
     --drop_path 0.1 \
     --layer_scale_init_value 0.1 \
     --imagenet_default_mean_and_std \
     --opt_betas 0.9 0.999 \
     --opt_eps 1e-8  \
-    --weight_decay 0.01 \
+    --weight_decay 0.00 \
     --epochs 10 \
     --save_ckpt_freq 20 \
     --init_condenser \
-    --use_beit_mim \
-    --use_beit_mlm \
+    --warmup_ratio ${warmup_ratio} \
+    --model_name_or_path pretrained_model/condenser \
     --use_text_cl \
     --temp 0.05 \
-    --alpha 1e-2 \
-    --a0 ${a0} \
-    --a1 ${a1} \
-    --a2 ${a2} \
-    --a3 ${a3} \
+    --alpha ${alpha} \
+    --max_seq_length 128 \
+    --only_wiki1m \
+    --a0 1 \
+    --a1 1 \
+    --a2 1 \
+    --a3 1 \
     >${all_dir}/${name}_${node_rank}.log 

@@ -57,16 +57,6 @@ class OurDataCollatorWithPadding:
         
         batch["mlm_input_ids"], batch["mlm_labels"] = self.mask_tokens(batch["input_ids"])
 
-        batch = {k: batch[k].view(bs, num_sent, -1) if k in special_keys else batch[k].view(bs, num_sent, -1)[:, 0] for k in batch}
-
-
-        if "label" in batch:
-            batch["labels"] = batch["label"]
-            del batch["label"]
-        if "label_ids" in batch:
-            batch["labels"] = batch["label_ids"]
-            del batch["label_ids"]
-
         return batch
     def mask_tokens(
         self, inputs: torch.Tensor, special_tokens_mask: Optional[torch.Tensor] = None
@@ -114,17 +104,21 @@ class imgDataCollatorWithPadding:
         self.mlm=mlm
         self.mlm_probability=mlm_probability
 
-    def __call__(self, imgs_features,text_features) -> Dict[str, torch.Tensor]:
+    def __call__(self,  features) -> Dict[str, torch.Tensor]:
         special_keys = ['input_ids', 'attention_mask', 'token_type_ids', 'mlm_input_ids', 'mlm_labels']
-        bs = len(text_features)
-        if bs > 0:
-            num_sent = len(text_features[0]['input_ids'])
-        else:
-            return
+        bs = len(features)
+
         flat_features = []
-        for feature in text_features:
-            for i in range(num_sent):
-                flat_features.append({k: feature[k][i] if k in special_keys else feature[k] for k in feature})
+        samples, images, bool_masked_pos = [] , [] , []
+        for i in range(bs):
+            imgs_features,text_features =features[i]
+            samples.extend([imgs_features[0],imgs_features[0].clone()])
+            images.extend([imgs_features[1],imgs_features[1].clone()])
+            bool_masked_pos.extend([imgs_features[2],imgs_features[2].copy()])
+            for j in range(2):
+                flat_features.append({k: text_features[k] if k in special_keys else \
+                        text_features[k] for k in text_features})
+
 
         batch = self.tokenizer.pad(
             flat_features,
@@ -135,17 +129,10 @@ class imgDataCollatorWithPadding:
         )
         
         batch["mlm_input_ids"], batch["mlm_labels"] = self.mask_tokens(batch["input_ids"])
-
-        batch = {k: batch[k].view(bs, num_sent, -1) if k in special_keys else batch[k].view(bs, num_sent, -1)[:, 0] for k in batch}
-
-
-        if "label" in batch:
-            batch["labels"] = batch["label"]
-            del batch["label"]
-        if "label_ids" in batch:
-            batch["labels"] = batch["label_ids"]
-            del batch["label_ids"]
-
+        batch["samples"]=torch.stack(samples)
+        batch["images"]=torch.stack(images)
+        batch["bool_masked_pos"]=torch.tensor(bool_masked_pos)
+        # batch = {k: batch[k].view(bs, 2, -1) for k in batch}
         return batch
     def mask_tokens(
         self, inputs: torch.Tensor, special_tokens_mask: Optional[torch.Tensor] = None

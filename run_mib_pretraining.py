@@ -31,24 +31,20 @@ from beit_datasets import build_beit_pretraining_dataset
 from engine_for_mib_pretraining import train_one_epoch
 from utils import NativeScalerWithGradNormCount as NativeScaler
 import utils
-# import modeling_pretrain
 import mibcse_pretrain as modeling_pretrain
 import modeling_vqkd
 from args import beit_args
-# from condenser.modeling_condenser import CondenserForPretraining, RobertaCondenserForPretraining
-# from condenser.modeling_condenser_init import CondenserForPretraining, RobertaCondenserForPretraining
 from condenser.modeling_condenser_cl import CondenserForPretraining, RobertaCondenserForPretraining
 from condenser.arguments import DataTrainingArguments, ModelArguments
 from condenser.arguments import CondenserPreTrainingArguments as TrainingArguments
-# from flickr_train_dataset import flickr_train
-from sts_dataset_cl import paired_dataset,wiki1m_dataset
-# from sts_dataset import paired_dataset,wiki1m_dataset
+from sts_dataset_cl import paired_dataset
 from transformers.optimization import get_scheduler
 from transformers.trainer_utils import SchedulerType
 import math
 from utils import inf_train_gen
 from torch.utils.tensorboard import SummaryWriter
 from datasets import load_dataset
+# from functools import partial
 # os.environ["CUDA_VISIBLE_DEVICES"]='0'
 from transformers import (
     CONFIG_MAPPING,
@@ -147,33 +143,7 @@ def init_condenser_weight(condenser,args):
     return condenser
 
 
-def prepare_features(examples):
-        sent0_cname,sent1_cname='text','text'
-        total = len(examples[sent0_cname])
 
-        # Avoid "None" fields 
-        for idx in range(total):
-            if examples[sent0_cname][idx] is None:
-                examples[sent0_cname][idx] = " "
-            if examples[sent1_cname][idx] is None:
-                examples[sent1_cname][idx] = " "
-        
-        sentences = examples[sent0_cname] + examples[sent1_cname]
-
-
-        sent_features = all_tokenizer(
-            sentences,
-            max_length=32,
-            truncation=True,
-            padding=False,
-        )
-
-        features = {}
-
-        for key in sent_features:
-            features[key] = [[sent_features[key][i], sent_features[key][i+total]] for i in range(total)]
-            
-        return features
 
 def main(args , model_args, data_args, training_args):
     utils.init_distributed_mode(args)
@@ -191,6 +161,7 @@ def main(args , model_args, data_args, training_args):
     cudnn.benchmark = True
 
     model , condenser_model = get_model(args , model_args, data_args, training_args)
+    model_args.model_name_or_path=args.model_name_or_path
     if args.init_condenser:
         condenser_model = init_condenser_weight(condenser_model,args)
     if model_args.tokenizer_name:
@@ -214,10 +185,9 @@ def main(args , model_args, data_args, training_args):
 
     # get dataset
     paired_dataset_train = paired_dataset(json_path=args.paired_data_path, tokenizer=tokenizer, args=args)
-    # text_dataset_train = wiki1m_dataset(txt_path=args.text_data_path, tokenizer=tokenizer, args=args)
-    text_datasets = load_dataset('text', data_files={'train':args.text_data_path},cache_dir="/nlp_group/wuxing/suzhenpeng/SimCSE/data")
+    text_datasets = load_dataset('text', data_files={'train':args.text_data_path},cache_dir="./data")
     column_names=text_datasets["train"].column_names
-
+    # pre_proc =partial(prepare_features,tokenizer=tokenizer)
     def prepare_features(examples):
         sent0_cname,sent1_cname='text','text'
         total = len(examples[sent0_cname])
@@ -230,7 +200,7 @@ def main(args , model_args, data_args, training_args):
         sentences = examples[sent0_cname] + examples[sent1_cname]
         sent_features = tokenizer(
             sentences,
-            max_length=32,
+            max_length=args.max_seq_length,
             truncation=True,
             padding=False,
         )
@@ -238,7 +208,6 @@ def main(args , model_args, data_args, training_args):
         for key in sent_features:
             features[key] = [[sent_features[key][i], sent_features[key][i+total]] for i in range(total)]
         return features
-
     text_dataset_train = text_datasets["train"].map(
             prepare_features,
             batched=True,
@@ -246,7 +215,7 @@ def main(args , model_args, data_args, training_args):
             remove_columns=column_names,
             load_from_cache_file=True,
         )
-    
+    # raise ValueError("error")
     # prepare visual tokenizer
     vqkd = get_visual_tokenizer(args).to(device)
 
@@ -256,7 +225,7 @@ def main(args , model_args, data_args, training_args):
         sampler_rank = global_rank
         paired_dataset_steps_per_epoch =math.ceil(len(paired_dataset_train) // args.batch_size // num_tasks)
         text_dataset_steps_per_epoch = math.ceil(len(text_dataset_train) // args.batch_size // num_tasks)
-        if args.only_text_cl:
+        if args.only_wiki1m:
             num_training_steps_per_epoch = text_dataset_steps_per_epoch
         else:
             num_training_steps_per_epoch = paired_dataset_steps_per_epoch+text_dataset_steps_per_epoch
@@ -275,28 +244,12 @@ def main(args , model_args, data_args, training_args):
     else:
         log_writer = None
 
-    if args.use_text_cl:
-        data_collator = cl_data.CondenserCollator(
-            args,
-            max_seq_length=data_args.max_seq_length,
-            tokenizer=tokenizer,
-            mlm_probability=data_args.mlm_probability,
-        )
-        data_collator_text = cl_data.OurDataCollatorWithPadding(tokenizer)
-    else:
-        data_collator = data.CondenserCollator(
-            tokenizer=tokenizer,
-            mlm_probability=data_args.mlm_probability,
-            max_seq_length=data_args.max_seq_length,
-        )
-        data_collator_text = data.CondenserCollator_text(
-            tokenizer=tokenizer,
-            mlm_probability=data_args.mlm_probability,
-            max_seq_length=data_args.max_seq_length,
-        )
-    tokenizer.save_pretrained(args.output_dir + os.sep + "tokenizer")
+    data_collator_pair = cl_data.imgDataCollatorWithPadding(tokenizer)
+    data_collator_text = cl_data.OurDataCollatorWithPadding(tokenizer)
+
+    tokenizer.save_pretrained(args.output_dir + os.sep + "best")
     data_loader_paired = torch.utils.data.DataLoader(
-        paired_dataset_train, sampler=paired_sampler_train,collate_fn=data_collator,
+        paired_dataset_train, sampler=paired_sampler_train,collate_fn=data_collator_pair,
         batch_size=args.batch_size,
         num_workers=args.num_workers,
         pin_memory=args.pin_mem,
@@ -358,9 +311,6 @@ def main(args , model_args, data_args, training_args):
             data_loader_text.sampler.set_epoch(epoch)
         loader_paired = inf_train_gen(data_loader_paired)
         loader_text = inf_train_gen(data_loader_text)
-        # if log_writer is not None:
-        #     log_writer.set_step(epoch * num_training_steps_per_epoch)
-
         best_stsb = train_one_epoch(
             model, condenser_model,condenser_model_without_ddp,vqkd, tokenizer,loader_paired,
             loader_text,optimizer, device, epoch,best_stsb, loss_scaler,
