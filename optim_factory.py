@@ -143,8 +143,8 @@ def create_optimizer(args, model,condenser_model, get_num_layer=None, get_layer_
         },
     ]
 
-    parameters.extend(condenser_parameters)
-    # parameters = condenser_parameters
+    # parameters.extend(condenser_parameters)
+    parameters = condenser_parameters
     print('Optimizer config:', opt_args)
     opt_split = opt_lower.split('_')
     opt_lower = opt_split[-1]

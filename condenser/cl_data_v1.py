@@ -25,12 +25,13 @@ from beit_datasets import DataAugmentationForBEiT
 @dataclass
 class OurDataCollatorWithPadding:
 
-    tokenizer: PreTrainedTokenizerBase
-    padding: Union[bool, str, PaddingStrategy] = True
-    max_length: Optional[int] = None
-    pad_to_multiple_of: Optional[int] = None
-    mlm: bool = True
-    mlm_probability: float = 0.15
+    def __init__(self,tokenizer,padding=True, max_length=None,pad_to_multiple_of=None,mlm=True,mlm_probability=0.15):
+        self.tokenizer=tokenizer
+        self.padding=padding
+        self.max_length=max_length
+        self.pad_to_multiple_of=pad_to_multiple_of
+        self.mlm=mlm
+        self.mlm_probability=mlm_probability
 
     def __call__(self, features: List[Dict[str, Union[List[int], List[List[int]], torch.Tensor]]]) -> Dict[str, torch.Tensor]:
         special_keys = ['input_ids', 'attention_mask', 'token_type_ids', 'mlm_input_ids', 'mlm_labels']

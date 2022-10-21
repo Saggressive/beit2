@@ -12,6 +12,7 @@ debug/
 vqkd_teacher/
 semantic_segmentation/
 all_dir/
-
+data/
+ir_data/
 
 

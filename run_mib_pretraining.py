@@ -48,6 +48,7 @@ from transformers.trainer_utils import SchedulerType
 import math
 from utils import inf_train_gen
 from torch.utils.tensorboard import SummaryWriter
+from datasets import load_dataset
 # os.environ["CUDA_VISIBLE_DEVICES"]='0'
 from transformers import (
     CONFIG_MAPPING,
@@ -61,6 +62,7 @@ CONDENSER_TYPE_MAP = {
     'roberta': RobertaCondenserForPretraining,
 }
 from condenser import data,cl_data
+
 def get_model(args, model_args, data_args, training_args):
     print(f"Creating model: {args.model}")
     if 'cls_pt' in args.model:
@@ -144,6 +146,35 @@ def init_condenser_weight(condenser,args):
     condenser.load_state_dict(condenser_state_dict)
     return condenser
 
+
+def prepare_features(examples):
+        sent0_cname,sent1_cname='text','text'
+        total = len(examples[sent0_cname])
+
+        # Avoid "None" fields 
+        for idx in range(total):
+            if examples[sent0_cname][idx] is None:
+                examples[sent0_cname][idx] = " "
+            if examples[sent1_cname][idx] is None:
+                examples[sent1_cname][idx] = " "
+        
+        sentences = examples[sent0_cname] + examples[sent1_cname]
+
+
+        sent_features = all_tokenizer(
+            sentences,
+            max_length=32,
+            truncation=True,
+            padding=False,
+        )
+
+        features = {}
+
+        for key in sent_features:
+            features[key] = [[sent_features[key][i], sent_features[key][i+total]] for i in range(total)]
+            
+        return features
+
 def main(args , model_args, data_args, training_args):
     utils.init_distributed_mode(args)
 
@@ -183,7 +214,39 @@ def main(args , model_args, data_args, training_args):
 
     # get dataset
     paired_dataset_train = paired_dataset(json_path=args.paired_data_path, tokenizer=tokenizer, args=args)
-    text_dataset_train = wiki1m_dataset(txt_path=args.text_data_path, tokenizer=tokenizer, args=args)
+    # text_dataset_train = wiki1m_dataset(txt_path=args.text_data_path, tokenizer=tokenizer, args=args)
+    text_datasets = load_dataset('text', data_files={'train':args.text_data_path},cache_dir="/nlp_group/wuxing/suzhenpeng/SimCSE/data")
+    column_names=text_datasets["train"].column_names
+
+    def prepare_features(examples):
+        sent0_cname,sent1_cname='text','text'
+        total = len(examples[sent0_cname])
+        # Avoid "None" fields 
+        for idx in range(total):
+            if examples[sent0_cname][idx] is None:
+                examples[sent0_cname][idx] = " "
+            if examples[sent1_cname][idx] is None:
+                examples[sent1_cname][idx] = " "
+        sentences = examples[sent0_cname] + examples[sent1_cname]
+        sent_features = tokenizer(
+            sentences,
+            max_length=32,
+            truncation=True,
+            padding=False,
+        )
+        features = {}
+        for key in sent_features:
+            features[key] = [[sent_features[key][i], sent_features[key][i+total]] for i in range(total)]
+        return features
+
+    text_dataset_train = text_datasets["train"].map(
+            prepare_features,
+            batched=True,
+            num_proc=4,
+            remove_columns=column_names,
+            load_from_cache_file=True,
+        )
+    
     # prepare visual tokenizer
     vqkd = get_visual_tokenizer(args).to(device)
 
@@ -219,12 +282,7 @@ def main(args , model_args, data_args, training_args):
             tokenizer=tokenizer,
             mlm_probability=data_args.mlm_probability,
         )
-        data_collator_text = cl_data.CondenserCollator_text(
-            args,
-            max_seq_length=data_args.max_seq_length,
-            tokenizer=tokenizer,
-            mlm_probability=data_args.mlm_probability,
-        )
+        data_collator_text = cl_data.OurDataCollatorWithPadding(tokenizer)
     else:
         data_collator = data.CondenserCollator(
             tokenizer=tokenizer,

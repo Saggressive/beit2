@@ -11,8 +11,8 @@ a2=$5
 a3=$6
 name=wiki1m_flickr
 # all_dir=./save/condenser/${name}_${LR}_${a0}_${a1}_${a2}_${a3}_epoch50
-all_dir=./save/condenser/${name}_${LR}_cl
-log_dir=./save/tensorboard_log/${name}_${LR}_cl
+all_dir=./save/new_base_condenser/
+log_dir=./save/new_base_condenser/tensorboard_log/
 mkdir ${all_dir}
 mkdir ${log_dir}
 nohup python -m torch.distributed.launch --nnodes=4 --master_addr=10.116.146.14 --node_rank=${node_rank}  --nproc_per_node=8   --master_port 3243  \

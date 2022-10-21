@@ -45,7 +45,7 @@
                     "--init_condenser",
                     "--use_beit_mim",
                     "--use_beit_mlm",
-                    "--use_text_cl"
+                    "--use_text_cl",
                     ],
             "env":{
                     "CUDA_VISIBLE_DEVICES":"1"

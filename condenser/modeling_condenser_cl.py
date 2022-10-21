@@ -62,6 +62,7 @@ class Similarity(nn.Module):
     def forward(self, x, y):
         return self.cos(x, y) / self.temp
 
+
 class CondenserForPretraining(nn.Module):
     def __init__(
         self,
@@ -82,7 +83,7 @@ class CondenserForPretraining(nn.Module):
         if beit_args.use_text_cl:
             self.mlp=MLPLayer(768)
             self.sim=Similarity(beit_args.temp)
-            
+            self.mlp.apply(self.lm._init_weights)
         if beit_args.only_text_cl:
             return
 
@@ -119,17 +120,18 @@ class CondenserForPretraining(nn.Module):
     def forward(self, model_input, labels, beit_cls=None, beit_hidden=None, mim_labels=None, mim_mask=None,mode="text"):
         cl_loss = torch.tensor(0,dtype=torch.float,device=model_input["cl_input_ids"].device)
         if self.beit_args.use_text_cl:
-            double_batch = model_input["cl_input_ids"].size()[0]
-            assert double_batch%2 ==0
-            batch=double_batch//2
-            cl_input={"input_ids":model_input["cl_input_ids"],"attention_mask": model_input["attention_mask"]}
+            batch_size=model_input["cl_input_ids"].size()[0]
+
+            cl_input={"input_ids":model_input["cl_input_ids"].view(2*batch_size,-1),\
+                "attention_mask": model_input["attention_mask"].view(2*batch_size,-1),\
+                "token_type_ids":model_input["token_type_ids"].view(2*batch_size,-1)}
             cl_out= self.lm(
                 **cl_input,
                 output_hidden_states=True,
                 return_dict=True,
             )
             z=cl_out.hidden_states[-1][:,0]
-            z=z.view(batch,2,-1)
+            z=z.view(batch_size,2,-1)
             z=self.mlp(z)
             z1,z2=z[:,0],z[:,1]
             if dist.is_initialized() and self.lm.training:

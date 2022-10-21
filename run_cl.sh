@@ -3,18 +3,18 @@ export NCCL_IB_DISABLE=0
 export NCCL_IB_GID_INDEX=3
 export NCCL_SOCKET_IFNAME=eth
 export NCCL_IB_HCA=mlx5
-export CUDA_VISIBLE_DEVICES=7
-name=only_text_cl_order
+export CUDA_VISIBLE_DEVICES=6
+name=only_text_cl_wiki1m
 LR=3e-5
-all_dir=./save/condenser/${name}_${LR}
-log_dir=./save/tensorboard_log/${name}_${LR}
+all_dir=./save/new_base_condenser/${name}
+log_dir=./save/new_base_condenser/tensorboard_log/${name}
 mkdir ${all_dir}
 mkdir ${log_dir}
 nohup python run_mib_pretraining.py \
     --accum_iter 1 \
     --data_set image_folder \
     --paired_data_path ir_data/flickr_random_captions.json \
-    --text_data_path ir_data/wiki1m.txt \
+    --text_data_path ir_data/wiki1m_for_simcse.txt \
     --output_dir ${all_dir} \
     --log_dir ${log_dir} \
     --model beit_base_patch16_224_8k_vocab_cls_pt \
@@ -37,14 +37,15 @@ nohup python run_mib_pretraining.py \
     --imagenet_default_mean_and_std \
     --opt_betas 0.9 0.999 \
     --opt_eps 1e-8  \
-    --weight_decay 0.01 \
+    --weight_decay 0.0 \
     --epochs 1 \
     --save_ckpt_freq 20 \
     --use_text_cl \
     --only_text_cl \
     --temp 0.05 \
     --alpha 1e-2 \
-    --warmup_ratio 0.1 \
+    --warmup_ratio 0.0 \
+    --seed 6 \
     --a0 1 \
     --a1 1 \
     --a2 1 \
