@@ -47,8 +47,6 @@ class wiki1m_dataset(Dataset):
 
     def __getitem__(self, index):
         text = self.txt_data[index]
-        # text = text.strip()
-        # print(text)
         if text is None:
             text=" "
         ids= self.tokenizer(

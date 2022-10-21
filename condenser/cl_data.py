@@ -195,7 +195,7 @@ class CondenserCollator_text(CondenserCollator):
             for i in range(len(examples)):
                 caption = examples[i]
                 while caption==[] or len(caption)==0 or caption is None:
-                    other = random.randint(0,len(examples))
+                    other = random.randint(0,len(examples)-1)
                     caption = deepcopy(examples[other])
                 new_examples.extend([caption,deepcopy(caption)])
         examples=new_examples
@@ -229,7 +229,7 @@ class CondenserCollator_text(CondenserCollator):
 
         batch = {
             "input_ids": inputs,
-            "cl_input_ids": inputs,
+            "cl_input_ids": torch.tensor(encoded_examples, dtype=torch.long),
             "labels": labels,
             "attention_mask": torch.tensor(masks),
         }
