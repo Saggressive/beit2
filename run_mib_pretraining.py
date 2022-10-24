@@ -38,6 +38,7 @@ from condenser.modeling_condenser_cl import CondenserForPretraining, RobertaCond
 from condenser.arguments import DataTrainingArguments, ModelArguments
 from condenser.arguments import CondenserPreTrainingArguments as TrainingArguments
 from sts_dataset_cl import paired_dataset
+# from sts_dataset_condenser import paired_dataset,wiki1m_dataset
 from transformers.optimization import get_scheduler
 from transformers.trainer_utils import SchedulerType
 import math
@@ -57,7 +58,7 @@ CONDENSER_TYPE_MAP = {
     'bert': CondenserForPretraining,
     'roberta': RobertaCondenserForPretraining,
 }
-from condenser import data,cl_data
+from condenser import data,cl_data,cl_data_condenser
 
 def get_model(args, model_args, data_args, training_args):
     print(f"Creating model: {args.model}")
@@ -215,6 +216,10 @@ def main(args , model_args, data_args, training_args):
             remove_columns=column_names,
             load_from_cache_file=True,
         )
+
+    # paired_dataset_train = paired_dataset(json_path=args.paired_data_path, tokenizer=tokenizer, args=args)
+    # text_dataset_train = wiki1m_dataset(args.text_data_path, tokenizer,args)
+
     # raise ValueError("error")
     # prepare visual tokenizer
     vqkd = get_visual_tokenizer(args).to(device)
@@ -244,8 +249,12 @@ def main(args , model_args, data_args, training_args):
     else:
         log_writer = None
 
-    data_collator_pair = cl_data.imgDataCollatorWithPadding(tokenizer)
-    data_collator_text = cl_data.OurDataCollatorWithPadding(tokenizer)
+    data_collator_pair = cl_data.imgDataCollatorWithPadding(tokenizer,args=args,mlm_probability=args.bert_mask_ratio)
+    data_collator_text = cl_data.OurDataCollatorWithPadding(tokenizer,mlm_probability=args.bert_mask_ratio)
+    # data_collator_pair = cl_data_condenser.CondenserCollator(args,max_seq_length=args.max_seq_length,
+    #         tokenizer=tokenizer,mlm_probability=args.bert_mask_ratio,)
+    # data_collator_text = cl_data_condenser.CondenserCollator_text(args,max_seq_length=args.max_seq_length,
+    #         tokenizer=tokenizer,mlm_probability=args.bert_mask_ratio,)
 
     tokenizer.save_pretrained(args.output_dir + os.sep + "best")
     data_loader_paired = torch.utils.data.DataLoader(

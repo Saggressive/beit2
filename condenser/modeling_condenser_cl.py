@@ -49,6 +49,8 @@ class MLPLayer(nn.Module):
 
         return x
 
+
+
 class Similarity(nn.Module):
     """
     Dot product or cosine similarity
@@ -87,13 +89,14 @@ class CondenserForPretraining(nn.Module):
         if beit_args.only_text_cl:
             return
 
-        self.c_head = nn.ModuleList(
-            [BertLayer(bert.config) for _ in range(model_args.n_head_layers)]
-        )
-        self.c_head.apply(self.lm._init_weights)
+        if beit_args.use_bert_mlm:
+            self.c_head = nn.ModuleList(
+                [BertLayer(bert.config) for _ in range(model_args.n_head_layers)]
+            )
+            self.c_head.apply(self.lm._init_weights)
 
         if beit_args.use_beit_mlm:
-            self.img2text=nn.Linear(768, 768)
+            self.img2text=MLPLayer(768)
             self.img2text.apply(self.lm._init_weights)
             self.beit_mlm_head = nn.ModuleList(
                 [BertLayer(bert.config) for _ in range(model_args.n_head_layers)]
@@ -101,7 +104,7 @@ class CondenserForPretraining(nn.Module):
             self.beit_mlm_head.apply(self.lm._init_weights)
 
         if beit_args.use_beit_mim:
-            self.text2img=nn.Linear(768, 768)
+            self.text2img=MLPLayer(768)
             self.text2img.apply(self.lm._init_weights)
             norm_layer = partial(nn.LayerNorm, eps=1e-6)
             self.norm=norm_layer(768)
@@ -131,6 +134,7 @@ class CondenserForPretraining(nn.Module):
                 **cl_input,
                 output_hidden_states=True,
                 return_dict=True,
+                cl=True
             )
             z=cl_out.hidden_states[-1][:,0]
             z=z.view(batch_size,2,-1)
@@ -155,32 +159,34 @@ class CondenserForPretraining(nn.Module):
             cl_labels = torch.arange(cos_sim.size(0)).long().to(z1.device)
             cl_loss = self.cross_entropy(cos_sim,cl_labels)
         
-        if self.beit_args.only_text_cl:
+        if self.beit_args.only_text_cl or (mode=="text" and self.beit_args.use_bert_mlm==False):
             return cl_loss,  torch.tensor(0,dtype=torch.float) , torch.tensor(0,dtype=torch.float), cl_loss
 
         attention_mask = self.lm.get_extended_attention_mask(
-            model_input['attention_mask'],
-            model_input['attention_mask'].shape,
-            model_input['attention_mask'].device
-        )
+                model_input['attention_mask'],
+                model_input['attention_mask'].shape,
+                model_input['attention_mask'].device
+            )
         mlm_input={"input_ids":model_input["mlm_input_ids"],"attention_mask": model_input["attention_mask"]}
         lm_out: MaskedLMOutput = self.lm(
             **mlm_input,
             labels=labels,
             output_hidden_states=True,
-            return_dict=True
+            return_dict=True,
         )
         cls_hiddens = lm_out.hidden_states[-1][:, :1]
         skip_hiddens = lm_out.hidden_states[self.model_args.skip_from]
-        hiddens = torch.cat([cls_hiddens, skip_hiddens[:, 1:]], dim=1)
-        for layer in self.c_head:
-            layer_out = layer(
-                hiddens,
-                attention_mask,
-            )
-            hiddens = layer_out[0]
+        if self.beit_args.use_bert_mlm:
         
-        if mode=="text":
+            hiddens = torch.cat([cls_hiddens, skip_hiddens[:, 1:]], dim=1)
+            for layer in self.c_head:
+                layer_out = layer(
+                    hiddens,
+                    attention_mask,
+                )
+                hiddens = layer_out[0]
+        
+        if mode=="text" and self.beit_args.use_bert_mlm:
             mlm_loss = self.mlm_loss(hiddens, labels)
             if self.model_args.late_mlm:
                 loss = self.beit_args.a3*lm_out.loss + self.beit_args.a0*mlm_loss
@@ -192,15 +198,15 @@ class CondenserForPretraining(nn.Module):
                 return loss, torch.tensor(0,dtype=torch.float) , mlm_loss,cl_loss
 
 
-        loss = torch.tensor(0,dtype=torch.float,device=hiddens.device)
-        beit_mim_loss , beit_mlm_loss , last_mlm_loss, mlm_loss = torch.tensor(0,dtype=torch.float,device=hiddens.device), \
-            torch.tensor(0,dtype=torch.float,device=hiddens.device),torch.tensor(0,dtype=torch.float,device=hiddens.device),\
-            torch.tensor(0,dtype=torch.float,device=hiddens.device)
-
+        loss = torch.tensor(0,dtype=torch.float,device=mim_labels.device)
+        beit_mim_loss , beit_mlm_loss , last_mlm_loss, mlm_loss = torch.tensor(0,dtype=torch.float,device=mim_labels.device), \
+            torch.tensor(0,dtype=torch.float,device=mim_labels.device),torch.tensor(0,dtype=torch.float,device=mim_labels.device),\
+            torch.tensor(0,dtype=torch.float,device=mim_labels.device)
+        
         if self.beit_args.use_beit_mlm:
             # last_hiddens = lm_out.hidden_states[-1][:,1:]
             text_hiddens = skip_hiddens[:, 1:].clone()
-            text_hiddens = self.img2text(text_hiddens)
+            beit_cls = self.img2text(beit_cls)#beit cls 改下
             beit_mlm_hiddens = torch.cat([beit_cls , text_hiddens], dim=1)
             for layer in self.beit_mlm_head:
                 layer_out = layer(
@@ -223,12 +229,16 @@ class CondenserForPretraining(nn.Module):
             beit_mim_loss = self.cross_entropy(input=beit_mim_hiddens,target=mim_labels)
             loss+=self.beit_args.a2*beit_mim_loss
 
-        mlm_loss = self.mlm_loss(hiddens, labels)
-        loss += self.beit_args.a0*mlm_loss
-        if self.model_args.late_mlm:
+        if self.beit_args.use_bert_mlm:
+            mlm_loss = self.mlm_loss(hiddens, labels)
+            loss += self.beit_args.a0*mlm_loss
+
+        if self.model_args.late_mlm and self.beit_args.use_bert_mlm:
             last_mlm_loss = lm_out.loss
             loss += self.beit_args.a3*last_mlm_loss
-            loss = self.beit_args.alpha * loss +cl_loss
+        
+        loss = self.beit_args.alpha * loss +cl_loss
+
         return loss, beit_mim_loss , beit_mlm_loss , last_mlm_loss, mlm_loss,cl_loss
 
 
@@ -249,7 +259,7 @@ class CondenserForPretraining(nn.Module):
         hf_model = BertForMaskedLM.from_pretrained(*args, **kwargs)
         model = cls(hf_model, model_args, data_args, train_args,beit_args)
         path = args[0]
-        if os.path.exists(os.path.join(path, 'model.pt')) and beit_args.init_condenser:
+        if os.path.exists(os.path.join(path, 'model.pt')) and beit_args.init_condenser and beit_args.use_bert_mlm:
             logger.info('loading extra weights from local files')
             model_dict = torch.load(os.path.join(path, 'model.pt'), map_location="cpu")
             load_result = model.load_state_dict(model_dict, strict=False)

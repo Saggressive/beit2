@@ -136,6 +136,7 @@ def get_args():
     parser.add_argument('--temp', default=0.05, type=float)
     parser.add_argument('--init_condenser',default=False,action='store_true')
     parser.add_argument('--use_beit_mlm',default=False,action='store_true')
+    parser.add_argument('--use_bert_mlm',default=False,action='store_true')
     parser.add_argument('--use_beit_mim',default=False,action='store_true')
     parser.add_argument('--use_text_cl',default=False,action='store_true')
     parser.add_argument('--only_text_cl',default=False,action='store_true')
@@ -145,4 +146,5 @@ def get_args():
     parser.add_argument('--max_seq_length', default=32, type=int)
     parser.add_argument('--mlm_head', default='./pretrained_model/condenser/model.pt', help='condenser head')
     parser.add_argument('--warmup_ratio',default=0.1,type=float)
+    parser.add_argument('--bert_mask_ratio',default=0.15,type=float)
     return parser.parse_args()

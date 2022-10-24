@@ -77,6 +77,11 @@ class OurDataCollatorWithPadding:
             special_tokens_mask = special_tokens_mask.bool()
 
         probability_matrix.masked_fill_(special_tokens_mask, value=0.0)
+
+        if self.tokenizer._pad_token is not None:
+            padding_mask = labels.eq(self.tokenizer.pad_token_id)
+            probability_matrix.masked_fill_(padding_mask, value=0.0)
+
         masked_indices = torch.bernoulli(probability_matrix).bool()
         labels[~masked_indices] = -100  # We only compute loss on masked tokens
 
@@ -96,20 +101,23 @@ class OurDataCollatorWithPadding:
 @dataclass
 class imgDataCollatorWithPadding:
 
-    def __init__(self,tokenizer,padding=True, max_length=None,pad_to_multiple_of=None,mlm=True,mlm_probability=0.15):
+    def __init__(self,tokenizer,padding=True, max_length=None,pad_to_multiple_of=None,mlm=True,mlm_probability=0.15,args=None):
         self.tokenizer=tokenizer
         self.padding=padding
         self.max_length=max_length
         self.pad_to_multiple_of=pad_to_multiple_of
         self.mlm=mlm
         self.mlm_probability=mlm_probability
+        self.transform = DataAugmentationForBEiT(args)
 
     def __call__(self,  features) -> Dict[str, torch.Tensor]:
+
         special_keys = ['input_ids', 'attention_mask', 'token_type_ids', 'mlm_input_ids', 'mlm_labels']
         bs = len(features)
 
         flat_features = []
         samples, images, bool_masked_pos = [] , [] , []
+        # imgs_clone=[]
         for i in range(bs):
             imgs_features,text_features =features[i]
             samples.extend([imgs_features[0],imgs_features[0].clone()])
@@ -119,6 +127,11 @@ class imgDataCollatorWithPadding:
                 flat_features.append({k: text_features[k] if k in special_keys else \
                         text_features[k] for k in text_features})
 
+        # for i in imgs_clone:
+        #     imgs_features=self.transform(i)
+        #     samples.append(imgs_features[0])
+        #     images.append(imgs_features[1])
+        #     bool_masked_pos.append(imgs_features[2])
 
         batch = self.tokenizer.pad(
             flat_features,
@@ -134,6 +147,7 @@ class imgDataCollatorWithPadding:
         batch["bool_masked_pos"]=torch.tensor(bool_masked_pos)
         # batch = {k: batch[k].view(bs, 2, -1) for k in batch}
         return batch
+        
     def mask_tokens(
         self, inputs: torch.Tensor, special_tokens_mask: Optional[torch.Tensor] = None
     ) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -152,7 +166,12 @@ class imgDataCollatorWithPadding:
         else:
             special_tokens_mask = special_tokens_mask.bool()
 
-        probability_matrix.masked_fill_(special_tokens_mask, value=0.0)
+        probability_matrix.masked_fill_(special_tokens_mask, value=0.0)#被mask处填充0
+
+        if self.tokenizer._pad_token is not None:
+            padding_mask = labels.eq(self.tokenizer.pad_token_id)
+            probability_matrix.masked_fill_(padding_mask, value=0.0)
+
         masked_indices = torch.bernoulli(probability_matrix).bool()
         labels[~masked_indices] = -100  # We only compute loss on masked tokens
 

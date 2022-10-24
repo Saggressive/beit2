@@ -113,8 +113,12 @@ def train_for_pair(model: torch.nn.Module, condenser_model: torch.nn.Module,cond
     # this attribute is added by timm on one optimizer (adahessian)
     is_second_order = hasattr(optimizer, 'is_second_order') and optimizer.is_second_order
     loss /= args.accum_iter
-    grad_norm = loss_scaler(loss, optimizer, 
+    grad_norm = loss_scaler(loss, optimizer, clip_grad=max_norm,
             parameters=condenser_model.parameters(), create_graph=is_second_order,update_grad=(step+1)%args.accum_iter==0)
+    # for name, param in condenser_model.named_parameters():
+    #     if param.grad is None:
+    #         print(name)
+
     if (step+1)%args.accum_iter==0:
         optimizer.zero_grad()
     loss_scale_value = loss_scaler.state_dict()["scale"]
@@ -145,7 +149,7 @@ def train_for_pair(model: torch.nn.Module, condenser_model: torch.nn.Module,cond
         condenser_model.train()
     # torch.distributed.barrier()
 
-    logger.info(f" step {complete_step}: loss_value = {loss_value},beit_mim_loss_value = {beit_mim_loss_value}, \
+    logger.info(f" step {complete_step}: loss = {loss_value},beit_mim_loss_value = {beit_mim_loss_value}, \
         beit_mlm_loss_value = {beit_mlm_loss_value} , last_mlm_loss_value = {last_mlm_loss_value} , \
         mid_mlm_loss_value = {mid_mlm_loss_value}, cl_loss_value={cl_loss_value},loss_scale_value = {loss_scale_value}, lr_value = {lr}")
 
@@ -192,8 +196,12 @@ def train_for_text(condenser_model: torch.nn.Module,condenser_model_without_ddp:
     # this attribute is added by timm on one optimizer (adahessian)
     is_second_order = hasattr(optimizer, 'is_second_order') and optimizer.is_second_order
     loss /=args.accum_iter
-    grad_norm = loss_scaler(loss, optimizer, 
+    grad_norm = loss_scaler(loss, optimizer, clip_grad=max_norm,
             parameters=condenser_model.parameters(), create_graph=is_second_order,update_grad=(step+1)%args.accum_iter==0)
+    # for name, param in condenser_model.named_parameters():
+    #     if param.grad is None:
+    #         print(name)
+
     if (step+1)%args.accum_iter==0:
         optimizer.zero_grad()
     loss_scale_value = loss_scaler.state_dict()["scale"]
