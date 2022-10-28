@@ -120,9 +120,9 @@ class imgDataCollatorWithPadding:
         # imgs_clone=[]
         for i in range(bs):
             imgs_features,text_features =features[i]
-            samples.extend([imgs_features[0],imgs_features[0].clone()])
-            images.extend([imgs_features[1],imgs_features[1].clone()])
-            bool_masked_pos.extend([imgs_features[2],imgs_features[2].copy()])
+            samples.append(imgs_features[0])
+            images.append(imgs_features[1])
+            bool_masked_pos.append(imgs_features[2])
             for j in range(2):
                 flat_features.append({k: text_features[k] if k in special_keys else \
                         text_features[k] for k in text_features})
@@ -186,3 +186,4 @@ class imgDataCollatorWithPadding:
 
         # The rest of the time (10% of the time) we keep the masked input tokens unchanged
         return inputs, labels
+

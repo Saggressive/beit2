@@ -230,10 +230,14 @@ def main(args , model_args, data_args, training_args):
         sampler_rank = global_rank
         paired_dataset_steps_per_epoch =math.ceil(len(paired_dataset_train) // args.batch_size // num_tasks)
         text_dataset_steps_per_epoch = math.ceil(len(text_dataset_train) // args.batch_size // num_tasks)
-        if args.only_wiki1m:
+        if args.train_mode == "text":
             num_training_steps_per_epoch = text_dataset_steps_per_epoch
-        else:
+        elif args.train_mode == "pair":
+            num_training_steps_per_epoch = paired_dataset_steps_per_epoch
+        elif args.train_mode == "all":
             num_training_steps_per_epoch = paired_dataset_steps_per_epoch+text_dataset_steps_per_epoch
+        else:
+            raise ValueError("mode error")
         paired_sampler_train = torch.utils.data.DistributedSampler(
             paired_dataset_train, num_replicas=num_tasks, rank=sampler_rank, shuffle=True
         )

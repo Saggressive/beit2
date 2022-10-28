@@ -21,7 +21,7 @@
                     "--shared_lm_head", "True",
                     "--early_layers", "9",
                     "--head_layers", "2",
-                    "--num_mask_patches", "75",
+                    "--num_mask_patches", "150",
                     "--second_input_size", "224",
                     "--second_interpolation", "bicubic",
                     "--min_crop_scale", "0.2",
@@ -45,9 +45,12 @@
                     "--init_condenser",
                     "--use_text_cl",
                     "--max_seq_length", "128",
-                    "--use_bert_mlm",
-                    "--use_beit_mlm",
+                    // "--use_bert_mlm",
+                    // "--use_beit_mlm",
                     "--use_beit_mim",
+                    "--seed","0",
+                    "--use_pair_cl",
+                    "--train_mode","all",
                     "--model_name_or_path", "pretrained_model/condenser" ,
                     ],
             "env":{
@@ -95,7 +98,6 @@
                     "--alpha","1",
                     "--use_text_cl",
                     "--only_text_cl",
-                    "--only_wiki1m"
                     ],
             "env":{
                     "CUDA_VISIBLE_DEVICES":"1"

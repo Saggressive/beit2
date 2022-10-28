@@ -25,7 +25,7 @@ class paired_dataset(Dataset):
         _dict=self.json_data[index]
         img_path , caption =_dict["image"] , _dict["caption"]
         img_path = self.root + os.sep + img_path
-        img = Image.open(img_path)
+        img = Image.open(img_path).convert("RGB")
         beit_imput = self.transform(img)
         ids= self.tokenizer(
             caption,

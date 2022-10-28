@@ -86,6 +86,10 @@ class CondenserForPretraining(nn.Module):
             self.mlp=MLPLayer(768)
             self.sim=Similarity(beit_args.temp)
             self.mlp.apply(self.lm._init_weights)
+        if beit_args.use_pair_cl:
+            self.mlp_v=MLPLayer(768)
+            self.sim_v=Similarity(beit_args.temp_v)
+            # self.mlp_v.apply(self.lm._init_weights)
         if beit_args.only_text_cl:
             return
 
@@ -118,12 +122,16 @@ class CondenserForPretraining(nn.Module):
                 )
                 for i in range(9, 11)])
             self.lm_head = nn.Linear(768, beit_args.codebook_size)
+            from modeling_finetune import RelativePositionBias
+            self.rel_pos_bias = RelativePositionBias(window_size=(14,14), num_heads=12)
         
         
 
 
-    def forward(self, model_input, labels, beit_cls=None, beit_hidden=None, mim_labels=None, mim_mask=None,mode="text"):
+    def forward(self, model_input, labels, beit_cls=None,beit_cls_cl=None, beit_hidden=None, mim_labels=None, mim_mask=None,mode="text"):
         cl_loss = torch.tensor(0,dtype=torch.float,device=model_input["input_ids"].device)
+        inter_loss = torch.tensor(0,dtype=torch.float,device=model_input["input_ids"].device)
+        cl_out = None
         if self.beit_args.use_text_cl:
             batch_size=model_input["input_ids"].size()[0]//2
 
@@ -138,6 +146,7 @@ class CondenserForPretraining(nn.Module):
             )
             z=cl_out.hidden_states[-1][:,0]
             z=z.view(batch_size,2,-1)
+            pre_z=z.clone()
             z=self.mlp(z)
             z1,z2=z[:,0],z[:,1]
             if dist.is_initialized() and self.lm.training:
@@ -162,29 +171,60 @@ class CondenserForPretraining(nn.Module):
         if self.beit_args.only_text_cl or (mode=="text" and self.beit_args.use_bert_mlm==False):
             return cl_loss,  torch.tensor(0,dtype=torch.float) , torch.tensor(0,dtype=torch.float), cl_loss
 
-        attention_mask = self.lm.get_extended_attention_mask(
-                model_input['attention_mask'],
-                model_input['attention_mask'].shape,
-                model_input['attention_mask'].device
-            )
-        mlm_input={"input_ids":model_input["mlm_input_ids"],"attention_mask": model_input["attention_mask"]}
-        lm_out: MaskedLMOutput = self.lm(
-            **mlm_input,
-            labels=labels,
-            output_hidden_states=True,
-            return_dict=True,
-        )
-        cls_hiddens = lm_out.hidden_states[-1][:, :1]
-        skip_hiddens = lm_out.hidden_states[self.model_args.skip_from]
-        if self.beit_args.use_bert_mlm:
-        
-            hiddens = torch.cat([cls_hiddens, skip_hiddens[:, 1:]], dim=1)
-            for layer in self.c_head:
-                layer_out = layer(
-                    hiddens,
-                    attention_mask,
+        if self.beit_args.use_pair_cl and self.beit_args.use_text_cl:#开图文对比，必须开文本对比
+            batch_size=beit_cls_cl.size()[0]//2
+            p=self.mlp_v(pre_z)
+            p1,p2=p[:,0],p[:,1]
+            v=beit_cls_cl.view(batch_size,2,-1)[:,0]
+            if dist.is_initialized() and self.lm.training:
+                # Dummy vectors for allgather
+                p1_list = [torch.zeros_like(p1) for _ in range(dist.get_world_size())]
+                p2_list = [torch.zeros_like(p2) for _ in range(dist.get_world_size())]
+                v_list =  [torch.zeros_like(v) for _ in range(dist.get_world_size())]
+                # Allgather
+                dist.all_gather(tensor_list=p1_list, tensor=p1.contiguous())
+                dist.all_gather(tensor_list=p2_list, tensor=p2.contiguous())
+                dist.all_gather(tensor_list=v_list, tensor=v.contiguous())
+                # Since allgather results do not have gradients, we replace the
+                # current process's corresponding embeddings with original tensors
+                p1_list[dist.get_rank()] = p1
+                p2_list[dist.get_rank()] = p2
+                v_list[dist.get_rank()] = v
+                # Get full batch embeddings: (bs x N, hidden)
+                p1 = torch.cat(p1_list, 0)
+                p2 = torch.cat(p2_list, 0)
+                v = torch.cat(v_list, 0)
+            p1,p2=p1 / p1.norm(2, dim=-1, keepdim=True),p2 / p2.norm(2, dim=-1, keepdim=True)
+            v= v / v.norm(2,dim=-1,keepdim=True)
+            cos_sim_p0 = self.sim_v(p1.unsqueeze(1), v.unsqueeze(0))  # (bs, bs)
+            cos_sim_p1 = self.sim_v(p2.unsqueeze(1), v.unsqueeze(0))
+            cl_labels = torch.arange(cos_sim_p0.size(0)).long().to(p1.device)
+            inter_loss = (self.cross_entropy(cos_sim_p0, cl_labels) + self.cross_entropy(cos_sim_p1, cl_labels)) / 2
+
+        if self.beit_args.use_bert_mlm or self.beit_args.use_beit_mlm:    
+            attention_mask = self.lm.get_extended_attention_mask(
+                    model_input['attention_mask'],
+                    model_input['attention_mask'].shape,
+                    model_input['attention_mask'].device
                 )
-                hiddens = layer_out[0]
+            mlm_input={"input_ids":model_input["mlm_input_ids"],"attention_mask": model_input["attention_mask"]}
+            lm_out: MaskedLMOutput = self.lm(
+                **mlm_input,
+                labels=labels,
+                output_hidden_states=True,
+                return_dict=True,
+            )
+            cls_hiddens = lm_out.hidden_states[-1][:, :1]
+            skip_hiddens = lm_out.hidden_states[self.model_args.skip_from]
+            if self.beit_args.use_bert_mlm:
+            
+                hiddens = torch.cat([cls_hiddens, skip_hiddens[:, 1:]], dim=1)
+                for layer in self.c_head:
+                    layer_out = layer(
+                        hiddens,
+                        attention_mask,
+                    )
+                    hiddens = layer_out[0]
         
         if mode=="text" and self.beit_args.use_bert_mlm:
             mlm_loss = self.mlm_loss(hiddens, labels)
@@ -218,10 +258,11 @@ class CondenserForPretraining(nn.Module):
             loss += self.beit_args.a1*beit_mlm_loss
 
         if self.beit_args.use_beit_mim:
-            cls_hiddens = self.text2img(cls_hiddens)
+            rel_pos_bias = self.rel_pos_bias()
+            cls_hiddens = self.text2img(cl_out.hidden_states[-1][:,:1].clone())
             beit_mim_hiddens = torch.cat([cls_hiddens , beit_hidden], dim=1)
             for blk in self.cls_pt_layers:
-                beit_mim_hiddens = blk(beit_mim_hiddens)
+                beit_mim_hiddens = blk(beit_mim_hiddens,rel_pos_bias=rel_pos_bias)
             beit_mim_hiddens = self.norm(beit_mim_hiddens)
             beit_mim_hiddens = beit_mim_hiddens[:,1:,:]
             beit_mim_hiddens = beit_mim_hiddens[mim_mask]
@@ -237,9 +278,8 @@ class CondenserForPretraining(nn.Module):
             last_mlm_loss = lm_out.loss
             loss += self.beit_args.a3*last_mlm_loss
         
-        loss = self.beit_args.alpha * loss +cl_loss
-
-        return loss, beit_mim_loss , beit_mlm_loss , last_mlm_loss, mlm_loss,cl_loss
+        loss = self.beit_args.alpha * loss + cl_loss + self.beit_args.beta * inter_loss
+        return loss, beit_mim_loss , beit_mlm_loss , last_mlm_loss, mlm_loss,cl_loss,inter_loss
 
 
     def mlm_loss(self, hiddens, labels):

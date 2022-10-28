@@ -44,9 +44,13 @@ def train_one_epoch(model: torch.nn.Module, condenser_model: torch.nn.Module,con
 
     for step in range(steps_per_epoch):
         complete_step = step + epoch * steps_per_epoch
-        if args.only_wiki1m:
+        if args.train_mode=="text":
             batch = next(data_loader_text)
             best_stsb=train_for_text(condenser_model, condenser_model_without_ddp,tokenizer, optimizer, batch, \
+                                complete_step, device, best_stsb, loss_scaler, max_norm, log_writer, args, step)
+        elif args.train_mode == "pair":
+            batch = next(data_loader_paired)
+            best_stsb=train_for_pair(model, condenser_model, condenser_model_without_ddp,vqkd, tokenizer, optimizer, batch, \
                                 complete_step, device, best_stsb, loss_scaler, max_norm, log_writer, args, step)
         else:
             if step % paired_sample_step==0:
@@ -85,17 +89,27 @@ def train_for_pair(model: torch.nn.Module, condenser_model: torch.nn.Module,cond
         with torch.cuda.amp.autocast():
             input_ids = vqkd.get_codebook_indices(images)
         bool_masked_pos = bool_masked_pos.flatten(1).to(torch.bool)
-        labels = input_ids[bool_masked_pos]
-
+        # labels = input_ids[bool_masked_pos]
+    beit_cls_cl=None
     with torch.cuda.amp.autocast():  # enabled=False
         with torch.no_grad():
             beit_cls, beit_feat = model(samples, bool_masked_pos=bool_masked_pos)
             beit_cls, beit_feat = beit_cls.detach(), beit_feat.detach()
-
+            cls_s,feat_s=beit_cls.size(),beit_feat.size()
+            beit_cls, beit_feat = beit_cls.unsqueeze(1).repeat(1,2,1,1),beit_feat.unsqueeze(1).repeat(1,2,1,1)
+            beit_cls, beit_feat = beit_cls.view(cls_s[0]*2,cls_s[1],cls_s[2]),beit_feat.view(feat_s[0]*2,feat_s[1],feat_s[2])
+            b_s,i_s=bool_masked_pos.size(),input_ids.size()
+            bool_masked_pos,input_ids=bool_masked_pos.unsqueeze(1).repeat(1,2,1),input_ids.unsqueeze(1).repeat(1,2,1)
+            bool_masked_pos,input_ids=bool_masked_pos.view(b_s[0]*2,b_s[1]),input_ids.view(i_s[0]*2,i_s[1])
+            labels = input_ids[bool_masked_pos]
+            if args.use_pair_cl:
+                beit_cls_cl,_=model(samples, bool_masked_pos=None)
+                beit_cls_cl = beit_cls_cl.unsqueeze(1).repeat(1,2,1,1)
+                beit_cls_cl = beit_cls_cl.view(cls_s[0]*2,cls_s[1],cls_s[2])
         model_input = {"mlm_input_ids": txt_mlm_input_ids,"input_ids": txt_input_ids,
                             "attention_mask": attention_mask,"token_type_ids":type_ids}
-        loss, beit_mim_loss, beit_mlm_loss, last_mlm_loss,mid_mlm_loss ,cl_loss= \
-            condenser_model(model_input, txt_labels, beit_cls, beit_feat, labels, bool_masked_pos,mode="pair")
+        loss, beit_mim_loss, beit_mlm_loss, last_mlm_loss,mid_mlm_loss ,cl_loss,inter_loss= \
+            condenser_model(model_input, txt_labels, beit_cls,beit_cls_cl,beit_feat, labels, bool_masked_pos,mode="pair")
         # print("a")
 
     loss_value = loss.item()
@@ -104,6 +118,7 @@ def train_for_pair(model: torch.nn.Module, condenser_model: torch.nn.Module,cond
     last_mlm_loss_value = last_mlm_loss.item()
     mid_mlm_loss_value = mid_mlm_loss.item()
     cl_loss_value = cl_loss.item()
+    inter_loss_value = inter_loss.item()
 
     if not math.isfinite(loss_value):
         print(f"Loss is {loss_value}, stopping training at rank {utils.get_rank()}", force=True)
@@ -151,7 +166,8 @@ def train_for_pair(model: torch.nn.Module, condenser_model: torch.nn.Module,cond
 
     logger.info(f" step {complete_step}: loss = {loss_value},beit_mim_loss_value = {beit_mim_loss_value}, \
         beit_mlm_loss_value = {beit_mlm_loss_value} , last_mlm_loss_value = {last_mlm_loss_value} , \
-        mid_mlm_loss_value = {mid_mlm_loss_value}, cl_loss_value={cl_loss_value},loss_scale_value = {loss_scale_value}, lr_value = {lr}")
+        mid_mlm_loss_value = {mid_mlm_loss_value}, cl_loss_value={cl_loss_value},inter_loss_value={inter_loss_value}, \
+        loss_scale_value = {loss_scale_value}, lr_value = {lr}")
 
     loss_value_reduce = all_reduce_mean(loss_value)
     beit_mim_loss_value_reduce = all_reduce_mean(beit_mim_loss_value)
@@ -159,14 +175,16 @@ def train_for_pair(model: torch.nn.Module, condenser_model: torch.nn.Module,cond
     last_mlm_loss_value_reduce = all_reduce_mean(last_mlm_loss_value)
     mid_mlm_loss_value_reduce = all_reduce_mean(mid_mlm_loss_value)
     cl_loss_value_reduce = all_reduce_mean(cl_loss_value)
+    inter_loss_value_reduce = all_reduce_mean(inter_loss_value)
     loss_scale_value_reduce = all_reduce_mean(loss_scale_value)
     if log_writer is not None:
         log_writer.add_scalar("loss",loss_value_reduce, complete_step)
         log_writer.add_scalar("beit_mim_loss", beit_mim_loss_value_reduce, complete_step)
         log_writer.add_scalar("beit_mlm_loss", beit_mlm_loss_value_reduce, complete_step)
-        log_writer.add_scalar("last_mlm_loss", last_mlm_loss_value_reduce, complete_step)
-        log_writer.add_scalar("mid_mlm_loss", mid_mlm_loss_value_reduce, complete_step)
+        log_writer.add_scalar("pair_last_mlm_loss", last_mlm_loss_value_reduce, complete_step)
+        log_writer.add_scalar("pair_mid_mlm_loss", mid_mlm_loss_value_reduce, complete_step)
         log_writer.add_scalar("cl_loss",cl_loss_value_reduce, complete_step)
+        log_writer.add_scalar("inter_loss",inter_loss_value_reduce, complete_step)
         log_writer.add_scalar("loss_scale", loss_scale_value_reduce, complete_step)
         log_writer.add_scalar("lr", lr, complete_step)
         # log_writer.set_step()
