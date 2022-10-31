@@ -49,7 +49,25 @@ class MLPLayer(nn.Module):
 
         return x
 
+class ProjectionMLP(nn.Module):
+    def __init__(self, size):
+        super().__init__()
+        in_dim = size
+        hidden_dim = size * 2
+        out_dim = size
+        affine=False
+        list_layers = [nn.Linear(in_dim, hidden_dim, bias=False),
+                       nn.BatchNorm1d(hidden_dim),
+                       nn.ReLU(inplace=True)]
+        list_layers += [nn.Linear(hidden_dim, out_dim, bias=False),
+                        nn.BatchNorm1d(out_dim, affine=affine)]
+        self.net = nn.Sequential(*list_layers)
 
+    def forward(self, x):
+        b,n,d=x.size()
+        x=x.view(b*n,d)
+        x=self.net(x)
+        return x.view(b,n,d)
 
 class Similarity(nn.Module):
     """
@@ -83,11 +101,11 @@ class CondenserForPretraining(nn.Module):
         self.data_args = data_args
 
         if beit_args.use_text_cl:
-            self.mlp=MLPLayer(768)
+            self.mlp=MLPLayer(768) if not beit_args.batchnorm else ProjectionMLP(768)
             self.sim=Similarity(beit_args.temp)
             self.mlp.apply(self.lm._init_weights)
         if beit_args.use_pair_cl:
-            self.mlp_v=MLPLayer(768)
+            self.mlp_v=MLPLayer(768) if not beit_args.batchnorm else ProjectionMLP(768)
             self.sim_v=Similarity(beit_args.temp_v)
             # self.mlp_v.apply(self.lm._init_weights)
         if beit_args.only_text_cl:
@@ -260,7 +278,12 @@ class CondenserForPretraining(nn.Module):
         if self.beit_args.use_beit_mim:
             rel_pos_bias = self.rel_pos_bias()
             cls_hiddens = self.text2img(cl_out.hidden_states[-1][:,:1].clone())
-            beit_mim_hiddens = torch.cat([cls_hiddens , beit_hidden], dim=1)
+            if self.beit_args.use_feat_add:
+                beit_mim_hiddens = torch.cat([beit_cls , beit_hidden], dim=1)
+                cls_hiddens = cls_hiddens.repeat(1,beit_mim_hiddens.size()[1],1)
+                beit_mim_hiddens += cls_hiddens
+            else:
+                beit_mim_hiddens = torch.cat([cls_hiddens , beit_hidden], dim=1)
             for blk in self.cls_pt_layers:
                 beit_mim_hiddens = blk(beit_mim_hiddens,rel_pos_bias=rel_pos_bias)
             beit_mim_hiddens = self.norm(beit_mim_hiddens)

@@ -6,12 +6,14 @@ export NCCL_IB_HCA=mlx5
 # node_rank=0
 device=$1
 export CUDA_VISIBLE_DEVICES=${device}
-alpha=$2
-mask=$3
-seed=$4
-name=alpha${alpha}_mask${mask}_seed${seed}
-all_dir=save/pair_cl_mim_bn_add_mask_alpha_search/${name}
-log_dir=save/pair_cl_mim_bn_add_mask_alpha_search/tensorboard_log/${name}
+beta=$2
+temp_v=$3
+LR=$4
+seed=$5
+name=pair_cl_mim_temp_v${temp_v}_beta${beta}_LR${LR}_seed${seed}
+# all_dir=./save/condenser/${name}_${temp_v}_${a0}_${a1}_${a2}_${a3}_epoch50
+all_dir=save/pair_cl_mim_seed_bn_add/${name}
+log_dir=save/pair_cl_mim_seed_bn_add/tensorboard_log/${name}
 mkdir -p ${all_dir}
 mkdir -p ${log_dir}
 nohup /share/miniconda3/envs/beit2/bin/python run_mib_pretraining.py \
@@ -25,7 +27,7 @@ nohup /share/miniconda3/envs/beit2/bin/python run_mib_pretraining.py \
     --shared_lm_head True \
     --early_layers 9 \
     --head_layers 2 \
-    --num_mask_patches ${mask} \
+    --num_mask_patches 75 \
     --second_input_size 224 \
     --second_interpolation bicubic \
     --min_crop_scale 0.2 \
@@ -33,7 +35,7 @@ nohup /share/miniconda3/envs/beit2/bin/python run_mib_pretraining.py \
     --tokenizer_weight ./pretrained_model/vqkd_encoder_base_decoder_3x768x12_clip-d5036aa7.pth \
     --resume /nlp_group/wuxing/suzhenpeng/beit2/pretrained_model/beitv2_base_patch16_224_pt1k.pth\
     --batch_size 64 \
-    --lr 8e-6 \
+    --lr ${LR} \
     --clip_grad 1.0 \
     --drop_path 0.1 \
     --layer_scale_init_value 0.1 \
@@ -50,9 +52,9 @@ nohup /share/miniconda3/envs/beit2/bin/python run_mib_pretraining.py \
     --use_pair_cl \
     --use_feat_add \
     --temp 0.05 \
-    --temp_v 0.03 \
-    --alpha ${alpha} \
-    --beta 5e-3 \
+    --temp_v ${temp_v} \
+    --alpha 1e-5 \
+    --beta ${beta} \
     --max_seq_length 32 \
     --train_mode all \
     --use_beit_mim \

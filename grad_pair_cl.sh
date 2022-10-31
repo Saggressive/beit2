@@ -5,7 +5,7 @@ for seed in 1 2 3 4 5
 do
     for LR in ${beta1} ${beta2}
     do
-        for beta in 1e-3 5e-3 0.01 0.03
+        for beta in 1e-4 1e-3 5e-3 0.01
         do  
             temp_v=0.03
             bash run_condenser_pair_cl.sh ${device} ${beta} ${temp_v} ${LR} ${seed}
@@ -17,7 +17,7 @@ do
             fi
         done
 
-        for temp_v in 0.01 0.05 0.07 0.1 0.2
+        for temp_v in 0.01 0.05 0.1 0.2
         do  
             beta=0.01
             bash run_condenser_pair_cl.sh ${device} ${beta} ${temp_v} ${LR} ${seed}

@@ -12,11 +12,11 @@ LR=$4
 seed=$5
 name=pair_cl_temp_v${temp_v}_beta${beta}_LR${LR}_seed${seed}
 # all_dir=./save/condenser/${name}_${temp_v}_${a0}_${a1}_${a2}_${a3}_epoch50
-all_dir=save/pair_cl_seed_epoch2/${name}
-log_dir=save/pair_cl_seed_epoch2/tensorboard_log/${name}
+all_dir=save/pair_cl_seed_bn_epoch2/${name}
+log_dir=save/pair_cl_seed_bn_epoch2/tensorboard_log/${name}
 mkdir -p ${all_dir}
 mkdir -p ${log_dir}
-nohup python run_mib_pretraining.py \
+nohup /share/miniconda3/envs/beit2/bin/python run_mib_pretraining.py \
     --accum_iter 1 \
     --data_set image_folder \
     --paired_data_path ir_data/flickr_random_captions.json \
@@ -57,6 +57,7 @@ nohup python run_mib_pretraining.py \
     --max_seq_length 32 \
     --train_mode all \
     --seed ${seed} \
+    --batchnorm \
     --a0 1 \
     --a1 1 \
     --a2 1 \

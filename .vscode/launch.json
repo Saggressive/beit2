@@ -48,6 +48,8 @@
                     // "--use_bert_mlm",
                     // "--use_beit_mlm",
                     "--use_beit_mim",
+                    "--use_feat_add",
+                    "--batchnorm",
                     "--seed","0",
                     "--use_pair_cl",
                     "--train_mode","all",
