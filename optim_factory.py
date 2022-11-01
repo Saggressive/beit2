@@ -132,18 +132,23 @@ def create_optimizer(args, model,condenser_model, get_num_layer=None, get_layer_
     condenser_no_decay = ["bias", "LayerNorm.weight"]
     condenser_parameters = [
         {
-            "params": [p for n, p in condenser_model.named_parameters() if not any(nd in n for nd in condenser_no_decay)],
+            "params": [p for n, p in condenser_model.named_parameters() if not any(nd in n for nd in condenser_no_decay) and p.requires_grad],
             "weight_decay": args.weight_decay,
             "lr_scale": 1.0
         },
         {
-            "params": [p for n, p in condenser_model.named_parameters() if any(nd in n for nd in condenser_no_decay)],
+            "params": [p for n, p in condenser_model.named_parameters() if any(nd in n for nd in condenser_no_decay) and p.requires_grad],
             "weight_decay": 0.0,
             "lr_scale": 1.0
         },
     ]
+    # names=[]
+    # for i in condenser_parameters:
+    #     for j in i['params']:
+    #         names.append(j[0])
     # parameters = list(parameters)
     # parameters.extend(condenser_parameters)
+    # print(names)
     parameters = condenser_parameters
     print('Optimizer config:', opt_args)
     opt_split = opt_lower.split('_')

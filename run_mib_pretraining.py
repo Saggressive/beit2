@@ -117,6 +117,16 @@ def get_visual_tokenizer(args):
         ).eval()
     return model
 
+def freeze(layer):
+    if list(layer.children())==[]:
+        for param in layer.parameters():
+            param.requires_grad = False
+        return
+    for child in layer.children():
+        for param in child.parameters():
+            param.requires_grad = False
+    
+
 def init_condenser_weight(condenser,args):
 
     beit_ckpt = torch.load(args.resume, map_location='cpu')
@@ -141,6 +151,11 @@ def init_condenser_weight(condenser,args):
         condenser_state_dict[key0]=mlm_head_ckpt[key1]
 
     condenser.load_state_dict(condenser_state_dict)
+    if args.frozen:
+        freeze(condenser.norm)
+        freeze(condenser.lm_head)
+        freeze(condenser.cls_pt_layers)
+        
     return condenser
 
 

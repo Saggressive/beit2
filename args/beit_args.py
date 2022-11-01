@@ -143,6 +143,7 @@ def get_args():
     parser.add_argument('--use_pair_cl',default=False,action='store_true')
     parser.add_argument('--use_text_cl',default=False,action='store_true')
     parser.add_argument('--use_feat_add',default=False,action='store_true')
+    parser.add_argument('--frozen',default=False,action='store_true')
     parser.add_argument('--only_text_cl',default=False,action='store_true')
     parser.add_argument('--batchnorm',default=False,action='store_true')
     parser.add_argument('--train_mode',default="all",type=str)
