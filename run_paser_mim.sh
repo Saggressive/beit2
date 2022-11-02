@@ -47,7 +47,7 @@ nohup /share/miniconda3/envs/beit2/bin/python run_mib_pretraining.py \
     --warmup_ratio 0.1 \
     --model_name_or_path pretrained_model/condenser \
     --temp 0.05 \
-    --alpha ${alpha} \
+    --alpha 1 \
     --beta 1 \
     --max_seq_length 128 \
     --train_mode all \

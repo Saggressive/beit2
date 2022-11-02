@@ -243,14 +243,15 @@ def main(args , model_args, data_args, training_args):
         num_tasks = utils.get_world_size()
         global_rank = utils.get_rank()
         sampler_rank = global_rank
-        paired_dataset_steps_per_epoch =math.ceil(len(paired_dataset_train) // args.batch_size // num_tasks)
+        paired_sample_step = len(text_dataset_train) / len(paired_dataset_train)
+        paired_dataset_steps_per_epoch =math.ceil(len(paired_dataset_train) // int(args.batch_size/paired_sample_step) // num_tasks)
         text_dataset_steps_per_epoch = math.ceil(len(text_dataset_train) // args.batch_size // num_tasks)
         if args.train_mode == "text":
             num_training_steps_per_epoch = text_dataset_steps_per_epoch
         elif args.train_mode == "pair":
             num_training_steps_per_epoch = paired_dataset_steps_per_epoch
         elif args.train_mode == "all":
-            num_training_steps_per_epoch = paired_dataset_steps_per_epoch+text_dataset_steps_per_epoch
+            num_training_steps_per_epoch = min(paired_dataset_steps_per_epoch,text_dataset_steps_per_epoch)
         else:
             raise ValueError("mode error")
         paired_sampler_train = torch.utils.data.DistributedSampler(
@@ -276,9 +277,10 @@ def main(args , model_args, data_args, training_args):
     #         tokenizer=tokenizer,mlm_probability=args.bert_mask_ratio,)
 
     tokenizer.save_pretrained(args.output_dir + os.sep + "best")
+    
     data_loader_paired = torch.utils.data.DataLoader(
         paired_dataset_train, sampler=paired_sampler_train,collate_fn=data_collator_pair,
-        batch_size=args.batch_size,
+        batch_size=int(args.batch_size/paired_sample_step),
         num_workers=args.num_workers,
         pin_memory=args.pin_mem,
         drop_last=True,

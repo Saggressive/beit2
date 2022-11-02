@@ -1,9 +1,9 @@
 device=0
-for seed in 1 2 3 4 5
+for seed in 1
 do
-    for LR in 8e-6 1e-5 2e-5 3e-5
+    for LR in 3e-5 1e-4 2e-4 3e-4
     do
-        alpha=1e-5
+        alpha=1
         bash run_paser.sh ${device} ${LR} ${alpha} ${seed}
         device=`expr ${device} + 1`
         if [ ${device} == 8 ]
@@ -13,33 +13,9 @@ do
         fi
     done
 
-    for alpha in 1e-1 1e-2 1e-3 1e-4
-    do  
-        LR=8e-6
-        bash run_paser.sh ${device} ${LR} ${alpha} ${seed}
-        device=`expr ${device} + 1`
-        if [ ${device} == 8 ]
-        then
-            sleep 20
-            device=0
-        fi
-    done
-
-    for LR in 8e-6 1e-5 2e-5 3e-5
+    for LR in 3e-5 1e-4 2e-4 3e-4
     do
-        alpha=1e-5
-        bash run_paser_mim.sh ${device} ${LR} ${alpha} ${seed}
-        device=`expr ${device} + 1`
-        if [ ${device} == 8 ]
-        then
-            sleep 20
-            device=0
-        fi
-    done
-
-    for alpha in 1e-1 1e-2 1e-3 1e-4
-    do  
-        LR=8e-6
+        alpha=1
         bash run_paser_mim.sh ${device} ${LR} ${alpha} ${seed}
         device=`expr ${device} + 1`
         if [ ${device} == 8 ]

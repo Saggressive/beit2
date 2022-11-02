@@ -53,14 +53,12 @@ def train_one_epoch(model: torch.nn.Module, condenser_model: torch.nn.Module,con
             best_stsb=train_for_pair(model, condenser_model, condenser_model_without_ddp,vqkd, tokenizer, optimizer, batch, \
                                 complete_step, device, best_stsb, loss_scaler, max_norm, log_writer, args, step)
         else:
-            if step % paired_sample_step==0:
-                batch = next(data_loader_paired)
-                best_stsb=train_for_pair(model, condenser_model, condenser_model_without_ddp,vqkd, tokenizer, optimizer, batch, \
-                                    complete_step, device, best_stsb, loss_scaler, max_norm, log_writer, args, step)
-            else:
-                batch = next(data_loader_text)
-                best_stsb=train_for_text(condenser_model, condenser_model_without_ddp,tokenizer, optimizer, batch, \
-                                    complete_step, device, best_stsb, loss_scaler, max_norm, log_writer, args, step)
+            batch = next(data_loader_paired)
+            best_stsb=train_for_pair(model, condenser_model, condenser_model_without_ddp,vqkd, tokenizer, optimizer, batch, \
+                                complete_step, device, best_stsb, loss_scaler, max_norm, log_writer, args, step)
+            batch = next(data_loader_text)
+            best_stsb=train_for_text(condenser_model, condenser_model_without_ddp,tokenizer, optimizer, batch, \
+                                complete_step, device, best_stsb, loss_scaler, max_norm, log_writer, args, step)
 
 
         if (step+1) % args.accum_iter == 0:
@@ -163,11 +161,11 @@ def train_for_pair(model: torch.nn.Module, condenser_model: torch.nn.Module,cond
                     optimizer=optimizer, loss_scaler=loss_scaler, mode="step")
         condenser_model.train()
     # torch.distributed.barrier()
-
-    logger.info(f" step {complete_step}: loss = {loss_value},beit_mim_loss_value = {beit_mim_loss_value}, \
-        beit_mlm_loss_value = {beit_mlm_loss_value} , last_mlm_loss_value = {last_mlm_loss_value} , \
-        mid_mlm_loss_value = {mid_mlm_loss_value}, cl_loss_value={cl_loss_value},inter_loss_value={inter_loss_value}, \
-        loss_scale_value = {loss_scale_value}, lr_value = {lr}")
+    if complete_step % print_freq == 0:
+        logger.info(f" step {complete_step}: loss = {loss_value},beit_mim_loss_value = {beit_mim_loss_value}, \
+            beit_mlm_loss_value = {beit_mlm_loss_value} , last_mlm_loss_value = {last_mlm_loss_value} , \
+            mid_mlm_loss_value = {mid_mlm_loss_value}, cl_loss_value={cl_loss_value},inter_loss_value={inter_loss_value}, \
+            loss_scale_value = {loss_scale_value}, lr_value = {lr}")
 
     loss_value_reduce = all_reduce_mean(loss_value)
     beit_mim_loss_value_reduce = all_reduce_mean(beit_mim_loss_value)

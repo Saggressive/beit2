@@ -276,6 +276,18 @@ class CondenserForPretraining(nn.Module):
             loss += self.beit_args.a1*beit_mlm_loss
 
         if self.beit_args.use_beit_mim:
+
+            if cl_out is None:
+                batch_size=model_input["input_ids"].size()[0]//2
+                cl_input={"input_ids":model_input["input_ids"].view(2*batch_size,-1),\
+                    "attention_mask": model_input["attention_mask"].view(2*batch_size,-1),\
+                    "token_type_ids":model_input["token_type_ids"].view(2*batch_size,-1)}
+                cl_out= self.lm(
+                    **cl_input,
+                    output_hidden_states=True,
+                    return_dict=True,
+                    cl=True
+                )
             rel_pos_bias = self.rel_pos_bias()
             cls_hiddens = self.text2img(cl_out.hidden_states[-1][:,:1].clone())
             if self.beit_args.use_feat_add:
