@@ -49,22 +49,6 @@ class MLPLayer(nn.Module):
 
         return x
 
-class MLPLayer_multi(nn.Module):
-    """
-    Head for getting sentence representations over RoBERTa/BERT's CLS representation.
-    """
-
-    def __init__(self):
-        super().__init__()
-        self.dense = nn.Linear(768, 11520)
-        self.activation = nn.ReLU()
-
-    def forward(self, features):
-        x = self.dense(features)
-        x = self.activation(x)
-
-        return x
-
 class ProjectionMLP(nn.Module):
     def __init__(self, size):
         super().__init__()
@@ -144,9 +128,6 @@ class CondenserForPretraining(nn.Module):
         if beit_args.use_beit_mim:
             self.text2img=MLPLayer(768)
             self.text2img.apply(self.lm._init_weights)
-            if beit_args.use_feat_add:
-                self.text2img_multi=MLPLayer_multi()
-                self.text2img_multi.apply(self.lm._init_weights)
             norm_layer = partial(nn.LayerNorm, eps=1e-6)
             self.norm=norm_layer(768)
             dpr = [x.item() for x in torch.linspace(0, 0.1, 12)]  # stochastic depth decay rule
@@ -296,18 +277,17 @@ class CondenserForPretraining(nn.Module):
 
         if self.beit_args.use_beit_mim:
             rel_pos_bias = self.rel_pos_bias()
+            cls_hiddens = self.text2img(cl_out.hidden_states[-1][:,:1].clone())
             if self.beit_args.use_feat_add:
-                cls_hiddens = self.text2img_multi(cl_out.hidden_states[-1][:,:1].clone())
                 beit_mim_hiddens = torch.cat([beit_cls , beit_hidden], dim=1)
-                cls_hiddens = cls_hiddens.view(beit_mim_hiddens.size()[0],15,768)
-                beit_mim_hiddens = torch.cat([cls_hiddens,beit_mim_hiddens],dim=1)
+                cls_hiddens = cls_hiddens.repeat(1,beit_mim_hiddens.size()[1],1)
+                beit_mim_hiddens += cls_hiddens
             else:
-                cls_hiddens = self.text2img(cl_out.hidden_states[-1][:,:1].clone())
                 beit_mim_hiddens = torch.cat([cls_hiddens , beit_hidden], dim=1)
             for blk in self.cls_pt_layers:
                 beit_mim_hiddens = blk(beit_mim_hiddens,rel_pos_bias=rel_pos_bias)
             beit_mim_hiddens = self.norm(beit_mim_hiddens)
-            beit_mim_hiddens = beit_mim_hiddens[:,-196:,:]
+            beit_mim_hiddens = beit_mim_hiddens[:,1:,:]
             beit_mim_hiddens = beit_mim_hiddens[mim_mask]
             beit_mim_hiddens = self.lm_head(beit_mim_hiddens)
             beit_mim_loss = self.cross_entropy(input=beit_mim_hiddens,target=mim_labels)

@@ -1,4 +1,14 @@
 import os
-root_path="/nlp_group/wuxing/suzhenpeng/beit2_ratio_copy/save/beit_condenser_batch64"
-list_dir=os.listdir(root_path)
-print(list_dir)
+import csv
+
+if __name__=="__main__":
+    data=[]
+    with open("ir_data/raw.csv") as f:
+        f_csv=csv.reader(f)
+        header=next(f_csv)
+        for row in f_csv:
+            data.append(row[0])
+    data=list(set(data))
+    data=[i+"\n" for i in data]
+    with open("ir_data/paser.txt","w") as f:
+        f.writelines(data)
