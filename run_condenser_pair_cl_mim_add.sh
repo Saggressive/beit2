@@ -6,14 +6,12 @@ export NCCL_IB_HCA=mlx5
 # node_rank=0
 device=$1
 export CUDA_VISIBLE_DEVICES=${device}
-beta=$2
-temp_v=$3
-LR=$4
-seed=$5
-name=pair_cl_mim_temp_v${temp_v}_beta${beta}_LR${LR}_seed${seed}
-# all_dir=./save/condenser/${name}_${temp_v}_${a0}_${a1}_${a2}_${a3}_epoch50
-all_dir=save/pair_cl_mim_seed_bn_add_frozen/${name}
-log_dir=save/pair_cl_mim_seed_bn_add_frozen/tensorboard_log/${name}
+LR=$2
+alpha=$3
+seed=$4
+name=alpha${alpha}_LR${LR}_seed${seed}
+all_dir=save/cmim_multi/${name}
+log_dir=save/cmim_multi/tensorboard_log/${name}
 mkdir -p ${all_dir}
 mkdir -p ${log_dir}
 nohup /share/miniconda3/envs/beit2/bin/python run_mib_pretraining.py \
@@ -52,15 +50,14 @@ nohup /share/miniconda3/envs/beit2/bin/python run_mib_pretraining.py \
     --use_pair_cl \
     --use_feat_add \
     --temp 0.05 \
-    --temp_v ${temp_v} \
-    --alpha 1e-5 \
-    --beta ${beta} \
+    --temp_v 0.03 \
+    --alpha ${alpha} \
+    --beta 5e-3 \
     --max_seq_length 32 \
     --train_mode all \
     --use_beit_mim \
     --batchnorm \
     --seed ${seed} \
-    --frozen \
     --a0 1 \
     --a1 1 \
     --a2 1 \

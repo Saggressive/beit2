@@ -56,7 +56,7 @@ class MLPLayer_multi(nn.Module):
 
     def __init__(self):
         super().__init__()
-        self.dense = nn.Linear(768, 11520)
+        self.dense = nn.Linear(768, 15360)
         self.activation = nn.ReLU()
 
     def forward(self, features):
@@ -295,17 +295,17 @@ class CondenserForPretraining(nn.Module):
             loss += self.beit_args.a1*beit_mlm_loss
 
         if self.beit_args.use_beit_mim:
-            rel_pos_bias = self.rel_pos_bias()
+            # rel_pos_bias = self.rel_pos_bias()
             if self.beit_args.use_feat_add:
                 cls_hiddens = self.text2img_multi(cl_out.hidden_states[-1][:,:1].clone())
                 beit_mim_hiddens = torch.cat([beit_cls , beit_hidden], dim=1)
-                cls_hiddens = cls_hiddens.view(beit_mim_hiddens.size()[0],15,768)
+                cls_hiddens = cls_hiddens.view(beit_mim_hiddens.size()[0],20,768)
                 beit_mim_hiddens = torch.cat([cls_hiddens,beit_mim_hiddens],dim=1)
             else:
                 cls_hiddens = self.text2img(cl_out.hidden_states[-1][:,:1].clone())
                 beit_mim_hiddens = torch.cat([cls_hiddens , beit_hidden], dim=1)
             for blk in self.cls_pt_layers:
-                beit_mim_hiddens = blk(beit_mim_hiddens,rel_pos_bias=rel_pos_bias)
+                beit_mim_hiddens = blk(beit_mim_hiddens)
             beit_mim_hiddens = self.norm(beit_mim_hiddens)
             beit_mim_hiddens = beit_mim_hiddens[:,-196:,:]
             beit_mim_hiddens = beit_mim_hiddens[mim_mask]
