@@ -108,7 +108,7 @@ def train_for_pair(model: torch.nn.Module, condenser_model: torch.nn.Module,cond
                 beit_cls_cl = beit_cls_cl.view(cls_s[0]*2,cls_s[1],cls_s[2])
         model_input = {"mlm_input_ids": txt_mlm_input_ids,"input_ids": txt_input_ids,
                             "attention_mask": attention_mask,"token_type_ids":type_ids}
-        loss, beit_mim_loss, beit_mlm_loss, last_mlm_loss,mid_mlm_loss ,cl_loss,inter_loss= \
+        loss, beit_mim_loss, beit_mlm_loss, last_mlm_loss,mid_mlm_loss ,cl_loss,inter_loss,mse_loss= \
             condenser_model(model_input, txt_labels, beit_cls,beit_cls_cl,beit_feat, labels, bool_masked_pos,mode="pair")
         # print("a")
 
@@ -119,6 +119,7 @@ def train_for_pair(model: torch.nn.Module, condenser_model: torch.nn.Module,cond
     mid_mlm_loss_value = mid_mlm_loss.item()
     cl_loss_value = cl_loss.item()
     inter_loss_value = inter_loss.item()
+    mse_loss_value = mse_loss.item()
 
     if not math.isfinite(loss_value):
         print(f"Loss is {loss_value}, stopping training at rank {utils.get_rank()}", force=True)
@@ -167,7 +168,7 @@ def train_for_pair(model: torch.nn.Module, condenser_model: torch.nn.Module,cond
     logger.info(f" step {complete_step}: loss = {loss_value},beit_mim_loss_value = {beit_mim_loss_value}, \
         beit_mlm_loss_value = {beit_mlm_loss_value} , last_mlm_loss_value = {last_mlm_loss_value} , \
         mid_mlm_loss_value = {mid_mlm_loss_value}, cl_loss_value={cl_loss_value},inter_loss_value={inter_loss_value}, \
-        loss_scale_value = {loss_scale_value}, lr_value = {lr}")
+        mse_loss_value={mse_loss_value},loss_scale_value = {loss_scale_value}, lr_value = {lr}")
 
     loss_value_reduce = all_reduce_mean(loss_value)
     beit_mim_loss_value_reduce = all_reduce_mean(beit_mim_loss_value)
@@ -176,6 +177,7 @@ def train_for_pair(model: torch.nn.Module, condenser_model: torch.nn.Module,cond
     mid_mlm_loss_value_reduce = all_reduce_mean(mid_mlm_loss_value)
     cl_loss_value_reduce = all_reduce_mean(cl_loss_value)
     inter_loss_value_reduce = all_reduce_mean(inter_loss_value)
+    mse_loss_value_reduce = all_reduce_mean(mse_loss_value)
     loss_scale_value_reduce = all_reduce_mean(loss_scale_value)
     if log_writer is not None:
         log_writer.add_scalar("loss",loss_value_reduce, complete_step)
@@ -185,6 +187,7 @@ def train_for_pair(model: torch.nn.Module, condenser_model: torch.nn.Module,cond
         log_writer.add_scalar("pair_mid_mlm_loss", mid_mlm_loss_value_reduce, complete_step)
         log_writer.add_scalar("cl_loss",cl_loss_value_reduce, complete_step)
         log_writer.add_scalar("inter_loss",inter_loss_value_reduce, complete_step)
+        log_writer.add_scalar("mse_loss",mse_loss_value_reduce, complete_step)
         log_writer.add_scalar("loss_scale", loss_scale_value_reduce, complete_step)
         log_writer.add_scalar("lr", lr, complete_step)
         # log_writer.set_step()

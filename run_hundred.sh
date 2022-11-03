@@ -6,20 +6,19 @@ export NCCL_IB_HCA=mlx5
 # node_rank=0
 device=$1
 export CUDA_VISIBLE_DEVICES=${device}
-alpha=$2
-LR=$3
+LR=$2
+alpha=$3
 seed=$4
-name=beit_mim_LR${LR}_alpha${alpha}_seed${seed}
-# all_dir=./save/condenser/${name}_${LR}_${a0}_${a1}_${a2}_${a3}_epoch50
-all_dir=save/beit_condenser_batch64/${name}
-log_dir=save/beit_condenser_batch64/tensorboard_log/${name}
+name=alpha${alpha}_LR${LR}_seed${seed}
+all_dir=save/hundred/${name}
+log_dir=save/hundred/tensorboard_log/${name}
 mkdir -p ${all_dir}
 mkdir -p ${log_dir}
-nohup python run_mib_pretraining.py \
+nohup /share/miniconda3/envs/beit2/bin/python run_mib_pretraining.py \
     --accum_iter 1 \
     --data_set image_folder \
     --paired_data_path ir_data/flickr_random_captions.json \
-    --text_data_path ir_data/wiki1m.txt \
+    --text_data_path ir_data/wiki1m_for_simcse.txt \
     --output_dir ${all_dir} \
     --log_dir ${log_dir} \
     --model beit_base_patch16_224_8k_vocab_cls_pt \
@@ -42,16 +41,21 @@ nohup python run_mib_pretraining.py \
     --opt_betas 0.9 0.999 \
     --opt_eps 1e-8  \
     --weight_decay 0.00 \
-    --epochs 1 \
+    --epochs 2 \
     --save_ckpt_freq 20 \
     --init_condenser \
     --warmup_ratio 0.0 \
     --model_name_or_path pretrained_model/condenser \
     --use_text_cl \
-    --only_text_cl \
+    --use_pair_cl \
     --temp 0.05 \
+    --temp_v 0.03 \
     --alpha ${alpha} \
+    --beta 5e-3 \
     --max_seq_length 32 \
+    --train_mode all \
+    --use_beit_mim \
+    --batchnorm \
     --seed ${seed} \
     --a0 1 \
     --a1 1 \

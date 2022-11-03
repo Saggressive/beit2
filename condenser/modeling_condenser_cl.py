@@ -49,6 +49,22 @@ class MLPLayer(nn.Module):
 
         return x
 
+class mimLayer(nn.Module):
+    """
+    Head for getting sentence representations over RoBERTa/BERT's CLS representation.
+    """
+
+    def __init__(self, hidden_size):
+        super().__init__()
+        self.dense = nn.Linear(hidden_size, hidden_size)
+        self.norm = nn.LayerNorm(768)
+
+    def forward(self, features):
+        x = self.dense(features)
+        x = self.norm(x)
+
+        return x
+
 class ProjectionMLP(nn.Module):
     def __init__(self, size):
         super().__init__()
@@ -126,7 +142,7 @@ class CondenserForPretraining(nn.Module):
             self.beit_mlm_head.apply(self.lm._init_weights)
 
         if beit_args.use_beit_mim:
-            self.text2img=MLPLayer(768)
+            self.text2img=mimLayer(768)
             self.text2img.apply(self.lm._init_weights)
             norm_layer = partial(nn.LayerNorm, eps=1e-6)
             self.norm=norm_layer(768)
@@ -260,6 +276,7 @@ class CondenserForPretraining(nn.Module):
         beit_mim_loss , beit_mlm_loss , last_mlm_loss, mlm_loss = torch.tensor(0,dtype=torch.float,device=mim_labels.device), \
             torch.tensor(0,dtype=torch.float,device=mim_labels.device),torch.tensor(0,dtype=torch.float,device=mim_labels.device),\
             torch.tensor(0,dtype=torch.float,device=mim_labels.device)
+        mse_loss = torch.tensor(0,dtype=torch.float,device=mim_labels.device)
         
         if self.beit_args.use_beit_mlm:
             # last_hiddens = lm_out.hidden_states[-1][:,1:]
@@ -278,12 +295,20 @@ class CondenserForPretraining(nn.Module):
         if self.beit_args.use_beit_mim:
             rel_pos_bias = self.rel_pos_bias()
             cls_hiddens = self.text2img(cl_out.hidden_states[-1][:,:1].clone())
+
+            # mean = beit_cls_cl.mean(dim=-1, keepdim=True)
+            # var = beit_cls_cl.var(dim=-1, keepdim=True)
+            # target = (beit_cls_cl - mean) / (var + 1.e-6)**.5
+
+            # mse_loss = (cls_hiddens - target) ** 2
+            # mse_loss = mse_loss.mean()  # [N, L], mean loss p
+
             if self.beit_args.use_feat_add:
                 beit_mim_hiddens = torch.cat([beit_cls , beit_hidden], dim=1)
                 cls_hiddens = cls_hiddens.repeat(1,beit_mim_hiddens.size()[1],1)
                 beit_mim_hiddens += cls_hiddens
             else:
-                beit_mim_hiddens = torch.cat([cls_hiddens , beit_hidden], dim=1)
+                beit_mim_hiddens = torch.cat([cls_hiddens*100 , beit_hidden], dim=1)
             for blk in self.cls_pt_layers:
                 beit_mim_hiddens = blk(beit_mim_hiddens,rel_pos_bias=rel_pos_bias)
             beit_mim_hiddens = self.norm(beit_mim_hiddens)
@@ -291,7 +316,7 @@ class CondenserForPretraining(nn.Module):
             beit_mim_hiddens = beit_mim_hiddens[mim_mask]
             beit_mim_hiddens = self.lm_head(beit_mim_hiddens)
             beit_mim_loss = self.cross_entropy(input=beit_mim_hiddens,target=mim_labels)
-            loss+=self.beit_args.a2*beit_mim_loss
+            loss+=self.beit_args.a2*beit_mim_loss + mse_loss
 
         if self.beit_args.use_bert_mlm:
             mlm_loss = self.mlm_loss(hiddens, labels)
@@ -302,7 +327,7 @@ class CondenserForPretraining(nn.Module):
             loss += self.beit_args.a3*last_mlm_loss
         
         loss = self.beit_args.alpha * loss + cl_loss + self.beit_args.beta * inter_loss
-        return loss, beit_mim_loss , beit_mlm_loss , last_mlm_loss, mlm_loss,cl_loss,inter_loss
+        return loss, beit_mim_loss , beit_mlm_loss , last_mlm_loss, mlm_loss,cl_loss,inter_loss,mse_loss
 
 
     def mlm_loss(self, hiddens, labels):
