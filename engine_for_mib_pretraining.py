@@ -102,7 +102,7 @@ def train_for_pair(model: torch.nn.Module, condenser_model: torch.nn.Module,cond
             bool_masked_pos,input_ids=bool_masked_pos.unsqueeze(1).repeat(1,2,1),input_ids.unsqueeze(1).repeat(1,2,1)
             bool_masked_pos,input_ids=bool_masked_pos.view(b_s[0]*2,b_s[1]),input_ids.view(i_s[0]*2,i_s[1])
             labels = input_ids[bool_masked_pos]
-            if args.use_pair_cl:
+            if args.use_pair_cl or args.distill_beit:
                 beit_cls_cl,_=model(samples, bool_masked_pos=None)
                 beit_cls_cl = beit_cls_cl.unsqueeze(1).repeat(1,2,1,1)
                 beit_cls_cl = beit_cls_cl.view(cls_s[0]*2,cls_s[1],cls_s[2])
@@ -142,7 +142,7 @@ def train_for_pair(model: torch.nn.Module, condenser_model: torch.nn.Module,cond
     # if complete_step % 1 ==0:
     lr = optimizer.param_groups[0]["lr"]
 
-    if complete_step % (print_freq * 5) == 0:
+    if complete_step % (print_freq * 5) == 0 and args.distill_beit==False:
         logger.info("***** Start evaluation *****")
         condenser_model.eval()
         bert = condenser_model_without_ddp.lm

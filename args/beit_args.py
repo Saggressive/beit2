@@ -143,6 +143,7 @@ def get_args():
     parser.add_argument('--use_pair_cl',default=False,action='store_true')
     parser.add_argument('--use_text_cl',default=False,action='store_true')
     parser.add_argument('--only_text_cl',default=False,action='store_true')
+    parser.add_argument('--distill_beit',default=False,action='store_true')
     parser.add_argument('--train_mode',default="all",type=str)
     parser.add_argument('--beit_mim_fixed',default=False,action='store_true')
     parser.add_argument('--model_name_or_path', default="bert-base-uncased", type=str)

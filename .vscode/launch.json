@@ -43,18 +43,19 @@
                     "--temp","0.05",
                     "--alpha","1",
                     "--init_condenser",
-                    "--use_text_cl",
+                    // "--use_text_cl",
                     "--max_seq_length", "128",
                     // "--use_bert_mlm",
                     // "--use_beit_mlm",
-                    "--use_beit_mim",
+                    // "--use_beit_mim",
                     "--seed","0",
-                    "--use_pair_cl",
-                    "--train_mode","all",
+                    // "--use_pair_cl",
+                    "--distill_beit",
+                    "--train_mode","pair",
                     "--model_name_or_path", "pretrained_model/condenser" ,
                     ],
             "env":{
-                    "CUDA_VISIBLE_DEVICES":"0"
+                    "CUDA_VISIBLE_DEVICES":"1"
             },
             "justMyCode": false
         },

@@ -585,6 +585,7 @@ def save_condenser_step(args, model, model_without_ddp, optimizer, loss_scaler, 
     to_save = {
             'optimizer': optimizer.state_dict(),
             'scaler': loss_scaler.state_dict(),
+            'main_model':model_without_ddp.state_dict(),
             'args': args,
         }
     save_on_master(to_save, opt_path)
