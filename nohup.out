@@ -10,3 +10,21 @@ Killing subprocess 63231
 Killing subprocess 63232
 Killing subprocess 63234
 Main process received SIGINT, exiting
+Traceback (most recent call last):
+  File "run_mib_pretraining.py", line 37, in <module>
+    from condenser.modeling_condenser_cl import CondenserForPretraining, RobertaCondenserForPretraining
+ModuleNotFoundError: No module named 'condenser.modeling_condenser_cl'
+Traceback (most recent call last):
+  File "run_mib_pretraining.py", line 26, in <module>
+    from timm.models import create_model
+  File "/share/miniconda3/envs/beit2/lib/python3.8/site-packages/timm/__init__.py", line 2, in <module>
+    from .models import create_model, list_models, is_model, list_modules, model_entrypoint, \
+  File "/share/miniconda3/envs/beit2/lib/python3.8/site-packages/timm/models/__init__.py", line 24, in <module>
+    from .pit import *
+  File "<frozen importlib._bootstrap>", line 991, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 975, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 671, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 839, in exec_module
+  File "<frozen importlib._bootstrap_external>", line 971, in get_code
+  File "<frozen importlib._bootstrap_external>", line 640, in _compile_bytecode
+KeyboardInterrupt

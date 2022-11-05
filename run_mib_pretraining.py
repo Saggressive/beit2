@@ -129,16 +129,16 @@ def freeze(layer):
 
 def init_condenser_weight(condenser,args):
 
-    beit_ckpt = torch.load(args.resume, map_location='cpu')
+    beit_ckpt = torch.load(args.resume_mim_head, map_location='cpu')['main_model']
     mlm_head_ckpt = torch.load(args.mlm_head, map_location='cpu')
     condenser_state_dict=condenser.state_dict()
     condenser_mim_keys=[]
-    beit_mim_head=["norm","lm_head","cls_pt_layers"]
+    beit_mim_head=["norm","lm_head","cls_pt_layers","text2img"]
     for key in condenser_state_dict.keys():
         if key.split(".")[0] in beit_mim_head:
             condenser_mim_keys.append(key)
     for key in condenser_mim_keys:
-        condenser_state_dict[key]=beit_ckpt["model"][key]
+        condenser_state_dict[key]=beit_ckpt[key]
     
     
     condenser_keys=[]
@@ -157,8 +157,6 @@ def init_condenser_weight(condenser,args):
         freeze(condenser.cls_pt_layers)
         
     return condenser
-
-
 
 
 def main(args , model_args, data_args, training_args):
@@ -290,7 +288,7 @@ def main(args , model_args, data_args, training_args):
         pin_memory=args.pin_mem,
         drop_last=True,
     )
-    paired_sample_step = len(data_loader_text) // len(data_loader_paired)
+    paired_sample_step = len(data_loader_text.dataset) // len(data_loader_paired.dataset)
     model.to(device)
     model_without_ddp = model
     condenser_model.to(device)

@@ -21,7 +21,7 @@
                     "--shared_lm_head", "True",
                     "--early_layers", "9",
                     "--head_layers", "2",
-                    "--num_mask_patches", "150",
+                    "--num_mask_patches", "75",
                     "--second_input_size", "224",
                     "--second_interpolation", "bicubic",
                     "--min_crop_scale", "0.2",
@@ -55,9 +55,10 @@
                     "--train_mode","all",
                     // "--frozen",
                     "--model_name_or_path", "pretrained_model/condenser" ,
+                    "--resume_mim_head","save/distill_beit/mse_LR1e-4_alpha1/final/opt.pth"
                     ],
             "env":{
-                    "CUDA_VISIBLE_DEVICES":"0"
+                    "CUDA_VISIBLE_DEVICES":"1"
             },
             "justMyCode": false
         },
