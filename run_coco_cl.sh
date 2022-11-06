@@ -7,27 +7,24 @@ export NCCL_IB_HCA=mlx5
 device=$1
 export CUDA_VISIBLE_DEVICES=${device}
 LR=$2
-alpha=$3
-mask=$4
-decay=$5
-seed=$6
-name=alpha${alpha}_LR${LR}_mask${mask}_decay${decay}_seed${seed}
-all_dir=save/head_norm_decay/${name}
-log_dir=save/head_norm_decay/tensorboard_log/${name}
+seed=$3
+name=LR${LR}_seed${seed}
+all_dir=save/coco_simcse_cl/${name}
+log_dir=save/coco_simcse_cl/tensorboard_log/${name}
 mkdir -p ${all_dir}
 mkdir -p ${log_dir}
 nohup /share/miniconda3/envs/beit2/bin/python run_mib_pretraining.py \
     --accum_iter 1 \
     --data_set image_folder \
     --paired_data_path ir_data/flickr_random_captions.json \
-    --text_data_path ir_data/wiki1m_for_simcse.txt \
+    --text_data_path ir_data/wiki1m_coco_for_simcse.txt \
     --output_dir ${all_dir} \
     --log_dir ${log_dir} \
     --model beit_base_patch16_224_8k_vocab_cls_pt \
     --shared_lm_head True \
     --early_layers 9 \
     --head_layers 2 \
-    --num_mask_patches ${mask} \
+    --num_mask_patches 75 \
     --second_input_size 224 \
     --second_interpolation bicubic \
     --min_crop_scale 0.2 \
@@ -43,7 +40,7 @@ nohup /share/miniconda3/envs/beit2/bin/python run_mib_pretraining.py \
     --imagenet_default_mean_and_std \
     --opt_betas 0.9 0.999 \
     --opt_eps 1e-8  \
-    --weight_decay ${decay} \
+    --weight_decay 0.00 \
     --epochs 2 \
     --save_ckpt_freq 20 \
     --init_condenser \
@@ -53,11 +50,10 @@ nohup /share/miniconda3/envs/beit2/bin/python run_mib_pretraining.py \
     --use_pair_cl \
     --temp 0.05 \
     --temp_v 0.03 \
-    --alpha ${alpha} \
     --beta 5e-3 \
+    --alpha 1 \
     --max_seq_length 64 \
     --train_mode all \
-    --use_beit_mim \
     --batchnorm \
     --seed ${seed} \
     --a0 1 \

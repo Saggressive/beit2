@@ -9,11 +9,12 @@ export CUDA_VISIBLE_DEVICES=${device}
 LR=$2
 alpha=$3
 mask=$4
-decay=$5
+r=$5
 seed=$6
-name=alpha${alpha}_LR${LR}_mask${mask}_decay${decay}_seed${seed}
-all_dir=save/head_norm_decay/${name}
-log_dir=save/head_norm_decay/tensorboard_log/${name}
+e=$7
+name=alpha${alpha}_LR${LR}_mask${mask}_r${r}_e${e}_seed${seed}
+all_dir=save/head_norm_warmup/${name}
+log_dir=save/head_norm_warmup/tensorboard_log/${name}
 mkdir -p ${all_dir}
 mkdir -p ${log_dir}
 nohup /share/miniconda3/envs/beit2/bin/python run_mib_pretraining.py \
@@ -43,11 +44,11 @@ nohup /share/miniconda3/envs/beit2/bin/python run_mib_pretraining.py \
     --imagenet_default_mean_and_std \
     --opt_betas 0.9 0.999 \
     --opt_eps 1e-8  \
-    --weight_decay ${decay} \
-    --epochs 2 \
+    --weight_decay 0.00 \
+    --epochs ${e} \
     --save_ckpt_freq 20 \
     --init_condenser \
-    --warmup_ratio 0.0 \
+    --warmup_ratio ${r} \
     --model_name_or_path pretrained_model/condenser \
     --use_text_cl \
     --use_pair_cl \
