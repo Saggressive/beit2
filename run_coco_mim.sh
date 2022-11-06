@@ -17,7 +17,7 @@ nohup /share/miniconda3/envs/beit2/bin/python run_mib_pretraining.py \
     --accum_iter 1 \
     --data_set image_folder \
     --paired_data_path ir_data/flickr_random_captions.json \
-    --text_data_path ir_data/wiki1m_coco_for_simcse.txt \
+    --text_data_path ir_data/wiki1m_for_simcse.txt \
     --output_dir ${all_dir} \
     --log_dir ${log_dir} \
     --model beit_base_patch16_224_8k_vocab_cls_pt \
