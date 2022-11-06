@@ -161,20 +161,7 @@ class CondenserForPretraining(nn.Module):
 
         if beit_args.use_beit_mim:
             self.text2img=mimLayer(768)
-            norm_layer = partial(nn.LayerNorm, eps=1e-6)
-            self.norm=norm_layer(768)
-            dpr = [x.item() for x in torch.linspace(0, 0.1, 12)]  # stochastic depth decay rule
-            self.cls_pt_layers = nn.ModuleList([
-                Block(
-                    dim=768, num_heads=12, mlp_ratio=4, qkv_bias=True, qk_scale=None,
-                    drop=0.0, attn_drop=0.0, drop_path=dpr[i], norm_layer=norm_layer,
-                    init_values=0.1, window_size=None,
-                    attn_head_dim=None,
-                )
-                for i in range(9, 11)])
-            self.lm_head = nn.Linear(768, beit_args.codebook_size)
-            from modeling_finetune import RelativePositionBias
-            self.rel_pos_bias = RelativePositionBias(window_size=(14,14), num_heads=12)
+            
 
     def forward(self, model_input, labels, beit_cls=None,beit_cls_cl=None, beit_hidden=None, mim_labels=None, mim_mask=None,mode="text"):
         cl_loss = torch.tensor(0,dtype=torch.float,device=model_input["input_ids"].device)
@@ -321,19 +308,12 @@ class CondenserForPretraining(nn.Module):
             last_hidden = cl_out.hidden_states[-1][:,:1]
             last_hidden = self.text2img(last_hidden)
 
-            beit_mean = beit_hidden.mean(dim=-1, keepdim=True)
+            beit_mean = beit_cls_cl.mean(dim=-1, keepdim=True)
             beit_var = beit_hidden.var(dim=-1, keepdim=True)
-            beit_hidden = (beit_hidden - beit_mean) / (beit_var + 1.e-6)**.5
+            beit_cls_cl = (beit_cls_cl - beit_mean) / (beit_var + 1.e-6)**.5
 
-            rel_pos_bias = self.rel_pos_bias()
-            beit_mim_hiddens = torch.cat([last_hidden , beit_hidden], dim=1)
-            for blk in self.cls_pt_layers:
-                beit_mim_hiddens = blk(beit_mim_hiddens,rel_pos_bias=rel_pos_bias)
-            beit_mim_hiddens = self.norm(beit_mim_hiddens)
-            beit_mim_hiddens = beit_mim_hiddens[:,1:,:]
-            beit_mim_hiddens = beit_mim_hiddens[mim_mask]
-            beit_mim_hiddens = self.lm_head(beit_mim_hiddens)
-            beit_mim_loss = self.cross_entropy(input=beit_mim_hiddens,target=mim_labels)
+            beit_mim_loss = (last_hidden-beit_cls_cl)**2
+            beit_mim_loss = beit_mim_loss.mean()
             loss+=self.beit_args.a2*beit_mim_loss            
 
         if self.beit_args.use_bert_mlm:
