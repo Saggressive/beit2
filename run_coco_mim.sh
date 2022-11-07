@@ -7,17 +7,16 @@ export NCCL_IB_HCA=mlx5
 device=$1
 export CUDA_VISIBLE_DEVICES=${device}
 LR=$2
-alpha=$3
-seed=$4
+seed=$3
 name=LR${LR}_seed${seed}
-all_dir=save/coco_simcse_cl_mse/${name}
-log_dir=save/coco_simcse_cl_mse/tensorboard_log/${name}
+all_dir=save/coco_simcse_cl_mim/${name}
+log_dir=save/coco_simcse_cl_mim/tensorboard_log/${name}
 mkdir -p ${all_dir}
 mkdir -p ${log_dir}
 nohup /share/miniconda3/envs/beit2/bin/python run_mib_pretraining.py \
     --accum_iter 1 \
     --data_set image_folder \
-    --paired_data_path ir_data/flickr_random_captions.json \
+    --paired_data_path ir_data/coco_random_captions.json \
     --text_data_path ir_data/wiki1m_for_simcse.txt \
     --output_dir ${all_dir} \
     --log_dir ${log_dir} \
@@ -53,7 +52,7 @@ nohup /share/miniconda3/envs/beit2/bin/python run_mib_pretraining.py \
     --temp 0.05 \
     --temp_v 0.03 \
     --beta 5e-3 \
-    --alpha ${alpha} \
+    --alpha 1e-5 \
     --max_seq_length 64 \
     --train_mode all \
     --batchnorm \

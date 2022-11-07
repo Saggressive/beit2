@@ -16,7 +16,7 @@ mkdir -p ${log_dir}
 nohup /share/miniconda3/envs/beit2/bin/python run_mib_pretraining.py \
     --accum_iter 1 \
     --data_set image_folder \
-    --paired_data_path ir_data/flickr_random_captions.json \
+    --paired_data_path ir_data/coco_random_captions.json \
     --text_data_path ir_data/wiki1m_for_simcse.txt \
     --output_dir ${all_dir} \
     --log_dir ${log_dir} \
