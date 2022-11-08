@@ -133,12 +133,12 @@ def init_condenser_weight(condenser,args):
     mlm_head_ckpt = torch.load(args.mlm_head, map_location='cpu')
     condenser_state_dict=condenser.state_dict()
     condenser_mim_keys=[]
-    beit_mim_head=["norm","lm_head","cls_pt_layers","text2img"]
-    for key in condenser_state_dict.keys():
-        if key.split(".")[0] in beit_mim_head:
-            condenser_mim_keys.append(key)
-    for key in condenser_mim_keys:
-        condenser_state_dict[key]=beit_ckpt[key]
+    # beit_mim_head=["norm","lm_head","cls_pt_layers","text2img","bert2beit"]
+    # for key in condenser_state_dict.keys():
+    #     if key.split(".")[0] in beit_mim_head:
+    #         condenser_mim_keys.append(key)
+    # for key in condenser_mim_keys:
+    #     condenser_state_dict[key]=beit_ckpt[key]
     
     
     condenser_keys=[]

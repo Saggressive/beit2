@@ -312,7 +312,7 @@ class VisionTransformerForMaskedImageModelingCLS(VisionTransformerForMaskedImage
         x= self.forward_features(x, bool_masked_pos=bool_masked_pos)
         x_cls , x =x[:,0],x[:,1:]
         x_cls = x_cls.unsqueeze(1)
-        return x_cls.detach() , x.detach()
+        return x_cls, x
         
 @register_model
 def beit_base_patch16_224_8k_vocab_cls_pt(pretrained=False, **kwargs):

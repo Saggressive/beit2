@@ -176,6 +176,10 @@ class CondenserForPretraining(nn.Module):
             from modeling_finetune import RelativePositionBias
             self.rel_pos_bias = RelativePositionBias(window_size=(14,14), num_heads=12)
 
+            self.bert2beit = nn.ModuleList(
+                [BertLayer(bert.config) for _ in range(2)]
+            )
+
     def forward(self, model_input, labels, beit_cls=None,beit_cls_cl=None, beit_hidden=None, mim_labels=None, mim_mask=None,mode="text"):
         cl_loss = torch.tensor(0,dtype=torch.float,device=model_input["input_ids"].device)
         inter_loss = torch.tensor(0,dtype=torch.float,device=model_input["input_ids"].device)
@@ -286,10 +290,10 @@ class CondenserForPretraining(nn.Module):
                 return loss, torch.tensor(0,dtype=torch.float) , mlm_loss,cl_loss
 
 
-        loss = torch.tensor(0,dtype=torch.float,device=mim_labels.device)
-        beit_mim_loss , beit_mlm_loss , last_mlm_loss, mlm_loss = torch.tensor(0,dtype=torch.float,device=mim_labels.device), \
-            torch.tensor(0,dtype=torch.float,device=mim_labels.device),torch.tensor(0,dtype=torch.float,device=mim_labels.device),\
-            torch.tensor(0,dtype=torch.float,device=mim_labels.device)
+        loss = torch.tensor(0,dtype=torch.float,device=beit_cls_cl.device)
+        beit_mim_loss , beit_mlm_loss , last_mlm_loss, mlm_loss = torch.tensor(0,dtype=torch.float,device=beit_cls_cl.device), \
+            torch.tensor(0,dtype=torch.float,device=beit_cls_cl.device),torch.tensor(0,dtype=torch.float,device=beit_cls_cl.device),\
+            torch.tensor(0,dtype=torch.float,device=beit_cls_cl.device)
         
         if self.beit_args.use_beit_mlm:
             # last_hiddens = lm_out.hidden_states[-1][:,1:]
@@ -318,7 +322,20 @@ class CondenserForPretraining(nn.Module):
                     return_dict=True,
                     cl=True
                 )
-            last_hidden = cl_out.hidden_states[-1][:,:1]
+            attention_mask = self.lm.get_extended_attention_mask(
+                    model_input['attention_mask'],
+                    model_input['attention_mask'].shape,
+                    model_input['attention_mask'].device
+                )
+            bert_hidden =  cl_out.hidden_states[-1]
+            for layer in self.bert2beit:
+                layer_out = layer(
+                    bert_hidden,
+                    attention_mask,
+                )
+                bert_hidden = layer_out[0]
+
+            last_hidden = bert_hidden[:,:1]
             last_hidden = self.text2img(last_hidden)
 
             beit_mean = beit_hidden.mean(dim=-1, keepdim=True)

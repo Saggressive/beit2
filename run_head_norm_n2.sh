@@ -11,8 +11,8 @@ alpha=$3
 mask=$4
 seed=$5
 name=alpha${alpha}_LR${LR}_mask${mask}_seed${seed}
-all_dir=save/head_norm_n2/${name}
-log_dir=save/head_norm_n2/tensorboard_log/${name}
+all_dir=save/train_beit/${name}
+log_dir=save/train_beit/tensorboard_log/${name}
 mkdir -p ${all_dir}
 mkdir -p ${log_dir}
 nohup /share/miniconda3/envs/beit2/bin/python run_mib_pretraining.py \
@@ -33,7 +33,7 @@ nohup /share/miniconda3/envs/beit2/bin/python run_mib_pretraining.py \
     --tokenizer_model vqkd_encoder_base_decoder_3x768x12_clip \
     --tokenizer_weight ./pretrained_model/vqkd_encoder_base_decoder_3x768x12_clip-d5036aa7.pth \
     --resume /nlp_group/wuxing/suzhenpeng/beit2/pretrained_model/beitv2_base_patch16_224_pt1k.pth\
-    --resume_mim_head save/distill_beit/mse_LR5e-5_alpha1/final/opt.pth \
+    --resume_mim_head /nlp_group/wuxing/suzhenpeng/beit2_distill/save/distill_beit/mse_LR1e-4/final/opt.pth \
     --batch_size 64 \
     --lr ${LR} \
     --clip_grad 1.0 \
@@ -54,9 +54,8 @@ nohup /share/miniconda3/envs/beit2/bin/python run_mib_pretraining.py \
     --temp_v 0.03 \
     --alpha ${alpha} \
     --beta 5e-3 \
-    --max_seq_length 64 \
+    --max_seq_length 32 \
     --train_mode all \
-    --use_beit_mim \
     --batchnorm \
     --seed ${seed} \
     --a0 1 \

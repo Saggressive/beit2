@@ -29,7 +29,7 @@ def train_one_epoch(model: torch.nn.Module, condenser_model: torch.nn.Module,con
                     data_loader_paired: Iterable,data_loader_text: Iterable, optimizer: torch.optim.Optimizer,
                     device: torch.device, epoch: int, best_stsb: float,loss_scaler, max_norm: float = 0,
                     log_writer=None, lr_scheduler=None, steps_per_epoch=None,args=None,paired_sample_step=-1):
-    model.eval()
+    model.train()
     condenser_model.train()
     logging.basicConfig(
         format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s",
@@ -91,10 +91,12 @@ def train_for_pair(model: torch.nn.Module, condenser_model: torch.nn.Module,cond
         bool_masked_pos = bool_masked_pos.flatten(1).to(torch.bool)
         # labels = input_ids[bool_masked_pos]
     beit_cls_cl=None
+    beit_cls, beit_feat, labels=None,None,None
+    # bool_masked_pos,input_ids=None,None
     with torch.cuda.amp.autocast():  # enabled=False
-        with torch.no_grad():
+        if args.use_beit_mim:
             beit_cls, beit_feat = model(samples, bool_masked_pos=bool_masked_pos)
-            beit_cls, beit_feat = beit_cls.detach(), beit_feat.detach()
+            beit_cls, beit_feat = beit_cls, beit_feat
             cls_s,feat_s=beit_cls.size(),beit_feat.size()
             beit_cls, beit_feat = beit_cls.unsqueeze(1).repeat(1,2,1,1),beit_feat.unsqueeze(1).repeat(1,2,1,1)
             beit_cls, beit_feat = beit_cls.view(cls_s[0]*2,cls_s[1],cls_s[2]),beit_feat.view(feat_s[0]*2,feat_s[1],feat_s[2])
@@ -102,10 +104,11 @@ def train_for_pair(model: torch.nn.Module, condenser_model: torch.nn.Module,cond
             bool_masked_pos,input_ids=bool_masked_pos.unsqueeze(1).repeat(1,2,1),input_ids.unsqueeze(1).repeat(1,2,1)
             bool_masked_pos,input_ids=bool_masked_pos.view(b_s[0]*2,b_s[1]),input_ids.view(i_s[0]*2,i_s[1])
             labels = input_ids[bool_masked_pos]
-            if args.use_pair_cl:
-                beit_cls_cl,_=model(samples, bool_masked_pos=None)
-                beit_cls_cl = beit_cls_cl.unsqueeze(1).repeat(1,2,1,1)
-                beit_cls_cl = beit_cls_cl.view(cls_s[0]*2,cls_s[1],cls_s[2])
+        if args.use_pair_cl:
+            beit_cls_cl,_=model(samples, bool_masked_pos=None)
+            cls_s=beit_cls_cl.size()
+            beit_cls_cl = beit_cls_cl.unsqueeze(1).repeat(1,2,1,1)
+            beit_cls_cl = beit_cls_cl.view(cls_s[0]*2,cls_s[1],cls_s[2])
         model_input = {"mlm_input_ids": txt_mlm_input_ids,"input_ids": txt_input_ids,
                             "attention_mask": attention_mask,"token_type_ids":type_ids}
         loss, beit_mim_loss, beit_mlm_loss, last_mlm_loss,mid_mlm_loss ,cl_loss,inter_loss= \
